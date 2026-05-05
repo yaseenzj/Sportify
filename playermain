@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cence video/audio</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 2em;
+            background: #f8f9fa;
+            color: #222;
+            max-width: 600px;
+            margin: 40px auto;
+        }
+        h1 {
+            text-align: center;
+        }
+        .player-section {
+            margin-bottom: 2em;
+            background: #fff;
+            border-radius: 8px;
+            padding: 1em;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5em;
+            font-weight: bold;
+        }
+        audio, video {
+            width: 100%;
+            margin-bottom: 0.5em;
+        }
+        input[type="file"] {
+            margin-bottom: 1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Media Player</h1>
+
+    <div class="player-section">
+        <label for="audioFile">Select Audio File:</label>
+        <input type="file" id="audioFile" accept="audio/*">
+        <audio id="audioPlayer" controls>
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+
+    <div class="player-section">
+        <label for="videoFile">Select Video File:</label>
+        <input type="file" id="videoFile" accept="video/*">
+        <video id="videoPlayer" controls>
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <script>
+        // Audio file change handler
+        document.getElementById('audioFile').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                const audioPlayer = document.getElementById('audioPlayer');
+                audioPlayer.src = url;
+                audioPlayer.play();
+            }
+        });
+
+        // Video file change handler
+        document.getElementById('videoFile').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                const videoPlayer = document.getElementById('videoPlayer');
+                videoPlayer.src = url;
+                videoPlayer.play();
+            }
+        });
+    </script>
+</body>
+</html>

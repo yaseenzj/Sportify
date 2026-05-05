@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>P-Stream Dashboard</title>
+    <link rel="stylesheet" href="body.css">
+</head>
+<body>
+    <header>
+        <div class="logo">🎬 ZJ-Stream</div>
+        <nav>
+            <button class="edit-btn" id="dropdown-toggle">⚙️</button>
+        </nav>
+    </header>
+    <main>
+        <div class="welcome">
+            <h1>What would you like to watch this afternoon? Yaseen </h1>
+            <input type="text" placeholder="What do you want to watch?" />
+        </div>
+        <section class="continue-watching">
+            <h3>CONTINUE WATCHING...</h3>
+            <div class="cards">
+                <div class="card">
+                    <div class="episode-label">S2 - E3</div>
+                    <div class="thumbnail"></div>
+                </div>
+                <div class="card">
+                    <div class="episode-label">S1 - E1</div>
+                    <div class="thumbnail"></div>
+                </div>
+            </div>
+            <button class="edit-btn" id="dropdown-toggle">✎</button>
+            <div class="dropdown-menu" id="dropdown-menu">
+                <div class="dropdown-item">Settings</div>
+                <div class="dropdown-item">Login</div>
+            </div>
+        </section>
+    </main>
+    <script>
+    const toggleBtn = document.getElementById('dropdown-toggle');
+    const menu = document.getElementById('dropdown-menu');
+
+    toggleBtn.addEventListener('click', function(e) {
+        menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+        e.stopPropagation();
+    });
+
+    document.body.addEventListener('click', function() {
+        menu.style.display = 'none';
+    });
+
+    menu.addEventListener('click', function(e){
+        e.stopPropagation();
+    });
+    </script>
+</body>
+</html>

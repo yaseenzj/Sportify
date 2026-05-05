@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U8 Player</title>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .player-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .plyr {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <video id="player" playsinline controls></video>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('player');
+            const source = new URLSearchParams(window.location.search).get('dtv');
+
+            if (Hls.isSupported()) {
+                const hls = new Hls({
+                    startLevel: 0,
+                    capLevelToPlayerSize: false,
+                    debug: false,
+                    autoStartLoad: true,
+                    abrEwmaDefaultEstimate: 1000000
+                });
+
+                hls.loadSource(source);
+                hls.attachMedia(video);
+                video.play()
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    const availableQualities = hls.levels.map((l) => l.height);
+                    
+                    const player = new Plyr(video, {
+                        quality: {
+                            default: availableQualities[0],
+                            options: availableQualities,
+                            forced: true,
+                            onChange: (quality) => {
+                                hls.levels.forEach((level, levelIndex) => {
+                                    if (level.height === quality) {
+                                        hls.currentLevel = levelIndex;
+                                        
+                                    }
+                                
+                                });
+                            }
+                        }
+                    });
+
+                    window.player = player;
+                });
+
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hls.recoverMediaError();
+                                break;
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

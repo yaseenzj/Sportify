@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CENC MPEG-DASH DRM Player (Shaka Player)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 { text-align: center; color: #333; }
+    #video {
+      background: #000;
+      width: 800px;
+      height: 450px;
+      margin: 24px 0;
+      border-radius: 8px;
+    }
+    .note {
+      background: #fffbe6;
+      padding: 15px;
+      border: 1px solid #ffe58f;
+      border-radius: 5px;
+      color: #925600;
+      max-width: 800px;
+      margin: 0 auto;
+      margin-bottom: 18px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.7/dist/shaka-player.compiled.js"></script>
+</head>
+<body>
+  <h1>CENC DRM MPEG-DASH Player</h1>
+  <div class="note">
+    <b>Note:</b> This player requires a browser with Encrypted Media Extensions (EME) support and valid license server credentials.<br>
+    The stream below <b>WILL NOT PLAY</b> unless you provide correct DRM license server URLs.
+  </div>
+  <video id="video" controls autoplay poster="" width="800" height="450"></video>
+  <script>
+    
+    document.addEventListener('DOMContentLoaded', function () {
+      if (shaka.Player.isBrowserSupported()) {
+        initPlayer();
+      } else {
+        alert('Shaka Player is not supported on this browser.');
+      }
+    });
+
+    async function initPlayer() {
+      const manifestUri = 'https://abmyxykaaaaaaaamkyvb65fuqebyg.7a77200bf98444ac997a89ed83775793.emt.cf.ww.aiv-cdn.net/iad-nitro/live/clients/dash/enc/f60kqesunw/out/v1/a435ed7a00f947deb4369b46d8f2fb70/cenc.mpd';
+      
+      const drmConfig = {
+        'com.widevine.alpha': 'https://YOUR_WIDEVINE_LICENSE_SERVER_URL',
+        'com.microsoft.playready': 'https://YOUR_PLAYREADY_LICENSE_SERVER_URL'
+      };
+
+      const video = document.getElementById('video');
+      const player = new shaka.Player(video);
+
+      player.addEventListener('error', onErrorEvent);
+
+      player.configure({
+        drm: { servers: drmConfig }
+      });
+
+      try {
+        await player.load(manifestUri);
+        console.log('The video has now been loaded!');
+      } catch (error) {
+        onError(error);
+      }
+
+      function onErrorEvent(event) {
+        onError(event.detail);
+      }
+      function onError(error) {
+        console.error('Error code', error.code, error);
+        alert('Error loading video: ' + error.message);
+      }
+    }
+  </script>
+</body>
+</html>

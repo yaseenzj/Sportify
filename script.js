@@ -206,7 +206,7 @@ const matchCategories = document.getElementById("match-categories");
 // ===== Fetch Only Fancode Data =====
 async function fetchMatchData() {
   try {
-    const response1 = await fetch('https://raw.githubusercontent.com/drmlive/fancode-live-events/refs/heads/main/fancode.json');
+    const response1 = await fetch('https://raw.githubusercontent.com/Jitendraunatti/fancode/refs/heads/main/data/fancode.json');
     const data1 = await response1.json();
     const matches1 = data1.matches.map(match => ({
       ...match,
@@ -334,7 +334,7 @@ function renderLiveNowCarousel(matches) {
       <img src="${match.src}" alt="${match.match_name}">
       <div class="card-title">${match.match_name}</div>
     `;
-    card.addEventListener('click', () => openInPlayerIfM3U8(match.dai_url));
+    card.addEventListener('click', () => openInPlayerIfM3U8(match.adfree_url));
     carousel.appendChild(card);
   });
 
@@ -455,7 +455,6 @@ document.addEventListener("DOMContentLoaded", function() {
     this.classList.add('active');
   });
 
-  // For any <a href="...m3u8"> links in the DOM (optional, for completeness)
   document.querySelectorAll('a[href$=".m3u8"]').forEach(link => {
     link.addEventListener('click', function(event) {
       event.preventDefault();
