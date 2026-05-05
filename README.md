@@ -1,31 +1,31 @@
-# Sportify 🏎️📺
+# Sportify
+## Overview
+Sportify is a web-based application designed to aggregate and stream sports content. It integrates a custom media player with automated link management for a seamless viewing experience across live channels and highlights.
 
-A lightweight, premium sports streaming web application designed for personal use. Sportify provides a central hub to access live sports channels, F1 race highlights, and custom streaming links with a sleek, modern interface.
+## Technical Stack
+- **Architecture**: Static Web Application (Single Page Application)
+- **Frontend**: Vanilla JavaScript (ES6+), CSS3, HTML5
+- **Media Engine**: HLS.js
+- **Data Layer**: Fetch API for remote JSON integration
 
-## 🌟 About
-Sportify is a fun, personal project built to aggregate various sports streaming sources into one cohesive dashboard. It features a responsive design, category-based organization, and a built-in player for `.m3u8` streams.
-
-## 🚀 Features
-- **Live Sports Hub**: Quick access to major sports networks.
-- **F1 Highlights**: Dedicated section for the latest Formula 1 videos and race replays.
-- **Custom Player**: Integrated support for HLS (.m3u8) playback via a custom player interface.
-- **Responsive Design**: Optimized for both desktop and mobile viewing with touch-friendly elements.
-- **Modern UI**: Dark-themed aesthetic with smooth transitions and glassmorphism effects.
-
-## 🛠️ Technology Stack
-- **Frontend**: Vanilla HTML5, CSS3, and JavaScript.
-- **Streaming**: HLS.js for media playback.
-- **Icons**: Emoji-based and custom CSS styling.
-
-## 📖 How to Use
-1. Clone the repository to your local machine.
+## Usage
+### Running Locally
+1. Clone the repository.
 2. Open `index.html` in any modern web browser.
-3. Enter the default credentials (if prompted):
-   - **Username**: `yaseen`
-   - **Password**: `yaseen`
 
-## ⚠️ Disclaimer
-This project is for **educational and personal use only**. The repository does not host any media content. All streaming links are sourced from publicly available data or external providers. Users are responsible for ensuring they have the rights to view the content they access through this application.
+### Credentials
+For local testing or development access:
+- **Username**: `yaseen`
+- **Password**: `yaseen`
+
+## Project Structure
+- `/script.js`: Core application logic, data handling, and DOM manipulation.
+- `/style.css`: Modern layout engine with responsive breakpoints.
+- `/player.html`: Dedicated HLS playback interface.
+
+## Disclaimer
+This project is for educational and personal research purposes. It does not host or store any media content; it acts solely as a client for external streaming links.
 
 ---
-*Created with ❤️ by Yaseen*
+*Maintained by [Yaseen](https://github.com/yaseenzj)*
+
