@@ -1,0 +1,31 @@
+name: Deploy Web Player to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'web-app/**'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Install and Build 🔧
+        run: |
+          cd web-app
+          npm ci
+          npm run build
+
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: web-app/dist
+          branch: gh-pages

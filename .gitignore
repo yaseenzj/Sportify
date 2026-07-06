@@ -1,0 +1,39 @@
+# Node modules
+node_modules/
+/desktop-app/node_modules/
+/web-app/node_modules/
+
+# Build outputs
+/desktop-app/dist/
+/desktop-app/dist-react/
+/web-app/dist/
+/web-app/dist-ssr/
+
+# Cloudflare Workers (Contains credentials and stream management code)
+/workers/
+
+# Gitignored local data (Contains playlists and streams)
+/data/
+
+# Sensitive data / Stream lists / M3U & JSON Playlists
+# (Protects any JSON/M3U/M3U8 files under any directory from being committed)
+**/*.json
+**/*.m3u
+**/*.m3u8
+
+# Keep specific tooling config files
+!**/package.json
+!**/package-lock.json
+!**/.oxlintrc.json
+
+# Local environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+*.log
+.wrangler/
