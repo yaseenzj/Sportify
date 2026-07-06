@@ -58,3 +58,17 @@ Build binaries for Windows, macOS, or Linux using Electron Builder:
 cd desktop-app
 npm run build
 ```
+
+---
+
+## 📜 License
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. 
+
+### What does this mean?
+* **Open Source**: The code is freely available for anyone to view and use.
+* **Copyleft (Share-Alike)**: If you modify this code or run it as a service on a server, you **must** also release your modified version under the exact same AGPLv3 license and share your source code. 
+* **Commercial Use**: You cannot take this code, modify it, and hide your changes in a closed-source or proprietary app.
+* **No Warranty**: The software is provided "as is", without warranty of any kind.
+
+See the [LICENSE](LICENSE) file for more details.
