@@ -17,7 +17,7 @@ export function useStreams() {
         let jsonRes, m3uRes;
         
         try {
-          const fetchOpts = { headers: { "x-api-key": "mhmddd23" }, cache: 'no-store' };
+          const fetchOpts = { headers: { "x-api-key": import.meta.env.VITE_API_KEY || "" }, cache: 'no-store' };
           const t = Date.now();
           [jsonRes, m3uRes] = await Promise.allSettled([
             fetch(`${REMOTE_JSON_URL}?t=${t}`, fetchOpts).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
