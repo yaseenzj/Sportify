@@ -26,6 +26,20 @@ ipcMain.on('remove-store', (e, key) => {
   writeStore(store);
 });
 
+ipcMain.on('get-version', (e) => {
+  e.returnValue = app.getVersion();
+});
+
+ipcMain.on('start-update', () => {
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.downloadUpdate();
+});
+
+ipcMain.on('open-external', (e, url) => {
+  require('electron').shell.openExternal(url);
+  app.quit();
+});
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -92,9 +106,13 @@ app.whenReady().then(() => {
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36';
     
-    // Many IPTV servers block referers from web domains. By deleting it or keeping it empty, it acts like a direct player.
-    delete details.requestHeaders['Origin'];
-    delete details.requestHeaders['Referer'];
+    // Spoof Origin and Referer to match the requested domain.
+    // This bypasses localhost/file:// blocks while satisfying CDNs that require these headers.
+    try {
+      const reqUrl = new URL(details.url);
+      details.requestHeaders['Origin'] = reqUrl.origin;
+      details.requestHeaders['Referer'] = reqUrl.origin + '/';
+    } catch (e) {}
 
     callback({ requestHeaders: details.requestHeaders });
   });
@@ -103,6 +121,22 @@ app.whenReady().then(() => {
 
   // Auto-Updater
   const { autoUpdater } = require('electron-updater');
+  autoUpdater.autoDownload = false;
+
+  autoUpdater.on('update-available', (info) => {
+    win.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    win.webContents.send('download-progress', progressObj);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    win.webContents.send('update-downloaded', info);
+    // Automatically install once downloaded
+    autoUpdater.quitAndInstall();
+  });
+
   autoUpdater.checkForUpdatesAndNotify();
 
   app.on('activate', () => {

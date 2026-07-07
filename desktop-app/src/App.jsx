@@ -15,6 +15,10 @@ import { getStorage, setStorage, removeStorage } from './storage';
 
 export default function App() {
   const { streams, loading, setStreams, refetch } = useStreams();
+  const [updateStatus, setUpdateStatus] = useState(null);
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateInfo, setUpdateInfo] = useState(null);
+
   const [isOnboarding, setIsOnboarding] = useState(() => {
     return getStorage('sportify_setup_complete') !== 'true';
   });
@@ -63,10 +67,34 @@ export default function App() {
     }
   }, [loading, showSplash]);
 
+  React.useEffect(() => {
+    if (window.electronAPI && window.electronAPI.onUpdateAvailable) {
+      window.electronAPI.onUpdateAvailable((info) => {
+        setUpdateStatus('available');
+        setUpdateInfo(info);
+      });
+      window.electronAPI.onUpdateProgress((progressObj) => {
+        setUpdateStatus('downloading');
+        setUpdateProgress(progressObj.percent || 0);
+      });
+      window.electronAPI.onUpdateDownloaded(() => {
+        setUpdateStatus('ready');
+      });
+    }
+  }, []);
+
   const showToast = (message) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+  const handleLogout = React.useCallback(() => {
+    removeStorage('sportify_setup_complete');
+    removeStorage('sportify_username');
+    sessionStorage.removeItem('sportify_unlocked');
+    setIsOnboarding(true);
+    setActiveCategory('all');
+  }, []);
 
   const userName = getStorage('sportify_username');
   const API_BASE = import.meta.env.VITE_API_BASE || "";
@@ -74,16 +102,23 @@ export default function App() {
   React.useEffect(() => {
     if (userName) {
       fetch(`${API_BASE}/favorites?username=${encodeURIComponent(userName)}`)
-        .then(res => res.json())
+        .then(async res => {
+          if (res.status === 404 || res.status === 401) {
+            handleLogout();
+            showToast('Account removed by ZJ Labs.');
+            throw new Error("Session expired");
+          }
+          return res.json();
+        })
         .then(data => {
-          if (data.success && Array.isArray(data.favorites)) {
+          if (data && data.success && Array.isArray(data.favorites)) {
             setFavorites(data.favorites);
             setStorage('sportify_favorites', JSON.stringify(data.favorites));
           }
         })
         .catch(err => console.error("Failed to load favorites", err));
     }
-  }, [userName]);
+  }, [userName, handleLogout]);
 
   const toggleFavorite = (streamId) => {
     setFavorites(prev => {
@@ -103,7 +138,14 @@ export default function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: userName, favorites: newFavs })
-        }).catch(err => console.error("Failed to sync favorites", err));
+        })
+        .then(res => {
+          if (res.status === 404 || res.status === 401) {
+            handleLogout();
+            showToast('Account removed by administrator.');
+          }
+        })
+        .catch(err => console.error("Failed to sync favorites", err));
       }
       
       return newFavs;
@@ -154,15 +196,53 @@ export default function App() {
     });
   }, [streams, searchQuery, languageFilter, activeCategory, favorites]);
 
-  const handleLogout = () => {
-    removeStorage('sportify_setup_complete');
-    removeStorage('sportify_username');
-    setIsOnboarding(true);
-    setActiveCategory('all');
-  };
+
 
   return (
     <>
+      {updateStatus && (
+        <div className="onboarding-overlay" style={{ zIndex: 9999, background: 'rgba(0,0,0,0.95)', animation: 'fadeIn 0.4s ease-out' }}>
+          <div className="onboarding-modal" style={{ textAlign: 'center', padding: '40px', animation: 'slideUp 0.4s ease-out', maxWidth: '500px' }}>
+            <h2 className="onboarding-title">Update Required</h2>
+            <p className="onboarding-desc">A new version of Sportify is available{updateInfo?.version ? ` (v${updateInfo.version})` : ''}. You must update to continue using the app.</p>
+            
+            {updateStatus === 'available' && (
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '30px' }}>
+                <button className="primary-btn" onClick={() => {
+                  setUpdateStatus('downloading');
+                  window.electronAPI.startUpdate();
+                }}>
+                  Auto Install
+                </button>
+                <button className="secondary-btn" onClick={() => {
+                  window.electronAPI.openExternal('https://github.com/yaseenzj/Sportify/releases');
+                }}>
+                  Manual Install
+                </button>
+              </div>
+            )}
+
+            {updateStatus === 'downloading' && (
+              <div style={{ marginTop: '30px', textAlign: 'left' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: 'var(--text-muted)' }}>
+                  <span>Downloading update...</span>
+                  <span>{Math.round(updateProgress)}%</span>
+                </div>
+                <div style={{ width: '100%', height: '8px', background: 'var(--bg-lighter)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: 'var(--accent)', width: `${updateProgress}%`, transition: 'width 0.2s ease' }}></div>
+                </div>
+              </div>
+            )}
+
+            {updateStatus === 'ready' && (
+              <div style={{ marginTop: '30px', color: 'var(--accent)', fontWeight: 'bold' }}>
+                Update downloaded. Restarting...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {isOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
       
       {!isOnboarding && isLocked && (

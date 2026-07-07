@@ -16,7 +16,7 @@ export default function Profile({ userEmail, onLogout }) {
         <h4 style={{ marginBottom: '15px' }}>Account Info</h4>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
           <span style={{ color: 'gray' }}>Status</span>
-          <span style={{ color: '#fc4c02', fontWeight: 'bold' }}>VIP ACTIVE</span>
+          <span style={{ color: '#fc4c02', fontWeight: 'bold' }}>BETA MODE</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
           <span style={{ color: 'gray' }}>Member Since</span>

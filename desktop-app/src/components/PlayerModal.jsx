@@ -55,14 +55,28 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
           }
         },
         streaming: {
-          bufferingGoal: 5,
-          rebufferingGoal: 2,
+          retryParameters: {
+            maxAttempts: 10,
+            baseDelay: 1000,
+            backoffFactor: 2,
+            fuzzFactor: 0.5,
+            timeout: 30000
+          },
+          bufferingGoal: 15,
+          rebufferingGoal: 5,
           bufferBehind: 10,
           jumpLargeGaps: true,
           alwaysStreamText: true,
-          lowLatencyMode: true
+          lowLatencyMode: false
         },
         manifest: {
+          retryParameters: {
+            maxAttempts: 10,
+            baseDelay: 1000,
+            backoffFactor: 2,
+            fuzzFactor: 0.5,
+            timeout: 30000
+          },
           disableVideo: false,
           disableAudio: false,
           hls: {
@@ -76,6 +90,24 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
       };
 
       player.configure(playerConfig);
+
+      // Handle async errors that happen during playback
+      player.addEventListener('error', async (event) => {
+        console.error('Shaka Player error:', event.detail);
+        if (event.detail && event.detail.severity === 2) { // 2 = CRITICAL
+          console.log('Attempting to recover from critical error by reloading...');
+          try {
+            // Attempt a soft reload of the same URI
+            const currentUri = player.getAssetUri();
+            if (currentUri) {
+              await player.load(currentUri);
+              if (mounted) video.play().catch(e => console.error("Play failed after recovery", e));
+            }
+          } catch (recoveryError) {
+            console.error('Recovery failed', recoveryError);
+          }
+        }
+      });
 
       const allUrlsToTry = [
         { url: stream.url, clearKeys: stream.clearKeys },

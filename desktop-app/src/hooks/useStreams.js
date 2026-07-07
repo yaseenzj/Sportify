@@ -137,8 +137,13 @@ export function useStreams() {
 
     fetchStreams();
 
+    const intervalId = setInterval(() => {
+      if (mounted) fetchStreams();
+    }, 60000); // Auto-sync every 60 seconds
+
     return () => {
       mounted = false;
+      clearInterval(intervalId);
     };
   }, []);
 

@@ -194,7 +194,7 @@ export default function Onboarding({ onComplete }) {
                   <>
                     <input 
                       type="text" 
-                      placeholder="VIP Access Code" 
+                      placeholder="Beta Access Code" 
                       className="auth-input access-code" 
                       value={accessCode}
                       onChange={(e) => setAccessCode(e.target.value)}
