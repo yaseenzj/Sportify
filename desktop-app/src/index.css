@@ -697,7 +697,6 @@ body {
 /* Player Fixes */
 .player-container { display: flex; position: relative; width: 100%; height: 100%; background: #000; justify-content: center; align-items: center; overflow: hidden; }
 .player-container video { width: 100%; height: 100%; object-fit: contain; z-index: 0; }
-.shaka-spinner-svg { display: none !important; }
 
 /* Favorites */
 .fav-btn { background: transparent; border: none; color: rgba(255,255,255,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; transition: color 0.2s, transform 0.1s; }
@@ -710,3 +709,8 @@ body {
 .toggle-switch:checked { background: #9d4edd; border-color: #9d4edd; box-shadow: 0 0 10px rgba(157, 78, 221, 0.4); }
 .toggle-switch::after { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; top: 2px; left: 2px; background: white; transition: 0.3s; }
 .toggle-switch:checked::after { left: 22px; }
+
+/* Hide Shaka Player Loading Screen / Spinner */
+.shaka-spinner-container, .shaka-spinner-svg, .shaka-spinner {
+    display: none !important;
+}

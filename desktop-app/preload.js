@@ -9,5 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateProgress: (callback) => ipcRenderer.on('download-progress', (_event, value) => callback(value)),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (_event, value) => callback(value)),
   startUpdate: () => ipcRenderer.send('start-update'),
-  openExternal: (url) => ipcRenderer.send('open-external', url)
+  openExternal: (url) => ipcRenderer.send('open-external', url),
+  setActiveStream: (url, headers) => ipcRenderer.send('set-active-stream', url, headers),
+  clearActiveStream: () => ipcRenderer.send('clear-active-stream')
 });

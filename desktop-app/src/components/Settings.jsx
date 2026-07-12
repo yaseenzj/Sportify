@@ -20,11 +20,15 @@ export default function Settings() {
     setPinStatus('');
 
     try {
-      const email = getStorage('sportify_username');
+      const username = getStorage('sportify_username');
+      const token = getStorage('sportify_token');
       const res = await fetch(`${CLOUDFLARE_URL}/update-pin`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, oldPin, newPin })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ username, oldPin, newPin })
       });
       
       const data = await res.json();

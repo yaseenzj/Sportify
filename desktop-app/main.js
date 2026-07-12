@@ -12,6 +12,19 @@ function writeStore(data) {
   fs.writeFileSync(storePath, JSON.stringify(data), 'utf8');
 }
 
+let activeStreamUrl = null;
+let activeStreamHeaders = null;
+
+ipcMain.on('set-active-stream', (e, url, headers) => {
+  activeStreamUrl = url;
+  activeStreamHeaders = headers;
+});
+
+ipcMain.on('clear-active-stream', () => {
+  activeStreamUrl = null;
+  activeStreamHeaders = null;
+});
+
 ipcMain.on('get-store', (e, key) => {
   e.returnValue = readStore()[key] || null;
 });
@@ -40,8 +53,10 @@ ipcMain.on('open-external', (e, url) => {
   app.quit();
 });
 
+let mainWindow = null;
+
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
     title: "Sportify Premium Dashboard",
@@ -57,22 +72,22 @@ function createWindow() {
   // Load the index.html
   const isDev = !app.isPackaged;
   if (isDev) {
-    win.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5173');
   } else {
-    win.loadFile(path.join(__dirname, 'dist-react', 'index.html'));
+    mainWindow.loadFile(path.join(__dirname, 'dist-react', 'index.html'));
   }
 
   // Maximize the window
-  win.maximize();
+  mainWindow.maximize();
   
   // Anti-Bypass / Security Measures
-  win.setMenu(null); // Completely remove the top menu bar
+  mainWindow.setMenu(null); // Completely remove the top menu bar
 
   // Prevent DevTools
-  win.webContents.on('devtools-opened', () => {
-    win.webContents.closeDevTools();
+  mainWindow.webContents.on('devtools-opened', () => {
+    mainWindow.webContents.closeDevTools();
     const { dialog } = require('electron');
-    dialog.showMessageBox(win, {
+    dialog.showMessageBox(mainWindow, {
       type: 'warning',
       title: 'Nice Try',
       message: 'you really thought bro?',
@@ -81,7 +96,7 @@ function createWindow() {
   });
 
   // Block common inspect shortcuts
-  win.webContents.on('before-input-event', (event, input) => {
+  mainWindow.webContents.on('before-input-event', (event, input) => {
     if (
       input.key === 'F12' || 
       (input.control && input.shift && input.key.toLowerCase() === 'i') ||
@@ -96,23 +111,29 @@ function createWindow() {
 // Hardware Acceleration Fix:
 // Shaka Player frequently bugs out on Chromium when resizing/going to PiP/Fullscreen if hardware acceleration is enabled
 const hwAccel = readStore()['sportify_hw_accel'];
-// Disable it by default to prevent black screens.
-if (hwAccel !== true) {
+// ENABLE it by default because MediaKeys (DRM) fails on some systems without it
+if (hwAccel === false) {
   app.disableHardwareAcceleration();
 }
 
 app.whenReady().then(() => {
   // Override headers to simulate a normal browser or bypass specific blocks
-  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details, callback) => {
     details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36';
     
-    // Spoof Origin and Referer to match the requested domain.
-    // This bypasses localhost/file:// blocks while satisfying CDNs that require these headers.
-    try {
-      const reqUrl = new URL(details.url);
-      details.requestHeaders['Origin'] = reqUrl.origin;
-      details.requestHeaders['Referer'] = reqUrl.origin + '/';
-    } catch (e) {}
+    if (activeStreamHeaders) {
+      for (const [key, value] of Object.entries(activeStreamHeaders)) {
+        details.requestHeaders[key] = value;
+      }
+    } else {
+      // Spoof Origin and Referer to match the requested domain (Target URL spoofing).
+      // This is crucial for Fancode CDNs which reject mismatched referers, and it bypasses localhost blocks.
+      try {
+        const reqUrl = new URL(details.url);
+        details.requestHeaders['Origin'] = reqUrl.origin;
+        details.requestHeaders['Referer'] = reqUrl.origin + '/';
+      } catch (e) {}
+    }
 
     callback({ requestHeaders: details.requestHeaders });
   });
@@ -124,15 +145,15 @@ app.whenReady().then(() => {
   autoUpdater.autoDownload = false;
 
   autoUpdater.on('update-available', (info) => {
-    win.webContents.send('update-available', info);
+    if (mainWindow) mainWindow.webContents.send('update-available', info);
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
-    win.webContents.send('download-progress', progressObj);
+    if (mainWindow) mainWindow.webContents.send('download-progress', progressObj);
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    win.webContents.send('update-downloaded', info);
+    if (mainWindow) mainWindow.webContents.send('update-downloaded', info);
     // Automatically install once downloaded
     autoUpdater.quitAndInstall();
   });

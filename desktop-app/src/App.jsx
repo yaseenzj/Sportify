@@ -54,6 +54,8 @@ export default function App() {
 
   const handleOnboardingComplete = () => {
     setStorage('sportify_setup_complete', 'true');
+    sessionStorage.setItem('sportify_unlocked', 'true');
+    setIsLocked(false);
     setIsOnboarding(false);
     setShowSplash(false);
   };
@@ -101,7 +103,10 @@ export default function App() {
 
   React.useEffect(() => {
     if (userName) {
-      fetch(`${API_BASE}/favorites?username=${encodeURIComponent(userName)}`)
+      const token = getStorage('sportify_token');
+      fetch(`${API_BASE}/favorites?username=${encodeURIComponent(userName)}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
         .then(async res => {
           if (res.status === 404 || res.status === 401) {
             handleLogout();
@@ -134,9 +139,13 @@ export default function App() {
       setStorage('sportify_favorites', JSON.stringify(newFavs));
       
       if (userName) {
+        const token = getStorage('sportify_token');
         fetch(`${API_BASE}/favorites`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ username: userName, favorites: newFavs })
         })
         .then(res => {
@@ -312,7 +321,7 @@ export default function App() {
           <div className="scrollable-content"><Profile userEmail={userName} onLogout={handleLogout} /></div>
         ) : (
           <div className="scrollable-content">
-            <Hero />
+            <Hero onPlay={handleCustomStreamPlay} />
             
             <div className="filters-section">
               <h3 className="section-title">{activeCategory === 'favorites' ? 'Your Favorites' : 'Live Channels'}</h3>

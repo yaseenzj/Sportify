@@ -76,6 +76,9 @@ export function useStreams() {
                 const logoMatch = line.match(/tvg-logo="([^"]+)"/);
                 const logo = logoMatch ? logoMatch[1] : null;
 
+                const langMatch = line.match(/tvg-language="([^"]+)"/i);
+                const language = langMatch ? langMatch[1] : null;
+
                 let source = 'm3u';
                 if (line.includes('sportify-source="live"')) {
                   source = 'live';
@@ -85,6 +88,7 @@ export function useStreams() {
                   id: `m3u_${categoryName}_${i}`,
                   name: name,
                   logo: logo,
+                  language: language,
                   source: source,
                   category: categoryName,
                   clearKeys: null,

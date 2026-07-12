@@ -30,7 +30,13 @@ export default function StreamGrid({ streams, onPlay, favorites = [], toggleFavo
           <div className="stream-info">
             <h3>{stream.name}</h3>
             <div className="badges">
-              <span className={`badge type-${stream.source}`}>{stream.source.toUpperCase()}</span>
+              {stream.source === 'live' ? (
+                <span className="badge type-live">LIVE</span>
+              ) : stream.source === 'm3u' ? (
+                <span className="badge type-m3u">{stream.language ? stream.language.toUpperCase() : 'M3U'}</span>
+              ) : (
+                <span className={`badge type-${stream.source}`}>{stream.source.toUpperCase()}</span>
+              )}
               {stream.backupUrls && stream.backupUrls.length > 0 && (
                 <span className="badge type-backup">+{stream.backupUrls.length}</span>
               )}

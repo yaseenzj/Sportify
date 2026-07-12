@@ -82,7 +82,7 @@ export default function Hero({ onPlay }) {
   if (slides.length === 0) {
     // Fallback if no data loaded yet
     return (
-      <div className="hero-featured" style={{ background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="hero-featured" style={{ background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', borderRadius: '24px' }}>
         <div className="loading-spinner"></div>
       </div>
     );
@@ -91,12 +91,22 @@ export default function Hero({ onPlay }) {
   const currentSlide = slides[currentIndex];
 
   const handlePlayClick = () => {
-    if (!currentSlide.streams || !currentSlide.streams.primary) return;
+    let streamUrl = "";
+    if (currentSlide.streams) {
+      if (currentSlide.streams.backup) {
+        streamUrl = currentSlide.streams.backup.fancode_cdn || currentSlide.streams.backup.fancode_cdn_v1 || "";
+      }
+      if (!streamUrl) {
+        streamUrl = currentSlide.streams.primary || currentSlide.streams.fancode_cdn || "";
+      }
+    }
+    if (!streamUrl) return;
+
     if (onPlay) {
       onPlay({
         id: `fancode_${currentSlide.match_id || currentIndex}`,
-        name: currentSlide.title,
-        url: currentSlide.streams.primary,
+        name: `${currentSlide.title} | ${currentSlide.tournament}`,
+        url: streamUrl,
         source: 'live',
         category: currentSlide.category,
         clearKeys: null
@@ -128,7 +138,15 @@ export default function Hero({ onPlay }) {
       ))}
       <div className="hero-overlay" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, transparent 100%), linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 60%)', zIndex: 2 }}></div>
       
-      <div className="hero-content" style={{ zIndex: 3, position: 'relative', maxWidth: '600px' }}>
+      {/* Side Navigation Buttons */}
+      <button onClick={() => setCurrentIndex(prev => (prev - 1 + slides.length) % slides.length)} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(0,0,0,0.8)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(0,0,0,0.5)'}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <button onClick={() => setCurrentIndex(prev => (prev + 1) % slides.length)} style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(0,0,0,0.8)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(0,0,0,0.5)'}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+
+      <div className="hero-content" style={{ zIndex: 3, position: 'relative', maxWidth: '600px', marginLeft: '40px' }}>
         <div className="tags" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           <span className="tag" style={{ background: currentSlide.status === 'LIVE' ? 'rgba(255, 59, 48, 0.2)' : 'rgba(76, 217, 100, 0.2)', color: currentSlide.status === 'LIVE' ? '#ff3b30' : '#4cd964', border: `1px solid ${currentSlide.status === 'LIVE' ? 'rgba(255, 59, 48, 0.4)' : 'rgba(76, 217, 100, 0.4)'}` }}>
             {currentSlide.status === 'LIVE' ? 'LIVE NOW' : 'UPCOMING'}

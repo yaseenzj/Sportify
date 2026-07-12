@@ -70,6 +70,8 @@ export default function Onboarding({ onComplete }) {
       if (data.username) setStorage('sportify_username', data.username);
       else setStorage('sportify_username', username);
       
+      if (data.token) setStorage('sportify_token', data.token);
+      
       // If backend returns a pin (login), save it and skip step 3, else go to step 3
       if (authMode === 'login' && data.pin) {
         setStorage('sportify_pin', data.pin);
@@ -85,7 +87,23 @@ export default function Onboarding({ onComplete }) {
     }
   };
 
-  const handleFinishSetup = () => {
+  const handleFinishSetup = async () => {
+    try {
+      const username = getStorage('sportify_username');
+      const token = getStorage('sportify_token');
+      if (username && token) {
+        await fetch(`${CLOUDFLARE_URL}/update-pin`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ username, oldPin: "0000", newPin: pin })
+        });
+      }
+    } catch (err) {
+      console.error("Failed to sync initial PIN to server", err);
+    }
     setStorage('sportify_pin', pin);
     onComplete();
   };
