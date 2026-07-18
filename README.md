@@ -1,74 +1,72 @@
-# Sportify
+<div align="center">
+  <img src="desktop-app/src/assets/logo.png" alt="Sportify Logo" width="120" />
+  <h1>Sportify</h1>
+  <p>A modern, beautiful, and feature-rich desktop application for streaming live sports and managing M3U playlists.</p>
+</div>
 
-A premium, open-source suite of sports streaming dashboards and players designed for the modern web and desktop.
+<br />
 
-Sportify features an elegant, high-performance UI built on React, featuring smooth micro-animations, glassmorphism design elements, and a robust media player.
+## 🌟 Features
 
-## 🚀 Repository Structure
+- **Live Sports Hub**: Instantly view upcoming and live sports events across Football, Cricket, F1, MotoGP, Tennis, Golf, and more.
+- **Custom M3U Support**: Paste your own M3U playlists to seamlessly watch custom IPTV streams within the app.
+- **Stream Manager Dashboard**: A fully-fledged admin dashboard built on Cloudflare Workers to manage, edit, and organize your M3U streams by category. Includes automatic backups and version history!
+- **User Profiles**: Secure PIN-based login system for multiple users, with customizable avatars and profile settings.
+- **Beautiful UI**: Built with React, Vite, and Electron, featuring a premium dark mode aesthetic, glassmorphism, and smooth micro-animations.
+- **Cloudflare Powered**: The backend is lightweight and serverless, powered entirely by Cloudflare Workers and Cloudflare KV.
 
-This repository is organized as a workspace holding the core frontend clients:
+## 🚀 Getting Started
 
-*   **`web-app/`**: A React + Vite web-based stream player. It parses M3U playlists, lists channels dynamically, and supports HLS (.m3u8), DASH (.mpd), and ClearKey DRM streams.
-*   **`desktop-app/`**: A cross-platform Electron + React desktop application featuring customizable user profiles, secure PIN-based app locking, categorized streams, custom stream additions, global state settings, and full favorites syncing.
-*   **`scripts/`**: Automation and scraper scripts for local stream management.
-*   **`data/`** *(Gitignored)*: Consolidated folder for local channel configuration and cached playlists.
+### Prerequisites
+- [Node.js](https://nodejs.org/) (v18+)
+- [Cloudflare Account](https://dash.cloudflare.com/) (For deploying the backend workers)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)
 
----
-
-## 🔒 Security & Decoupled Architecture
-
-Sportify's clients are **UI-only and entirely open source**. 
-
-*   **Zero Exposed Playlists/Links**: There are no hardcoded M3U, MPD, HLS, or TS streaming links within this repository. 
-*   **Decoupled Worker Backend**: All playlist retrieval, live link updates, and DRM key management happen securely via serverless workers (e.g., Cloudflare Workers). 
-*   **API-Driven**: The clients fetch channels dynamically from the backend worker APIs.
-
----
-
-## 🛠️ Getting Started
-
-### 1. Web Player (`/web-app`)
-A lightweight, browser-based media player.
-
+### 1. Clone the Repository
 ```bash
-cd web-app
-npm install
-npm run dev
+git clone https://github.com/yaseenzj/Sportify.git
+cd Sportify
 ```
 
-### 2. Desktop Application (`/desktop-app`)
-Electron-powered app for desktop systems.
-
+### 2. Setup the Frontend (Desktop App)
+Navigate to the `desktop-app` directory and install dependencies:
 ```bash
 cd desktop-app
 npm install
+```
+
+Create your environment variables by copying the example file:
+```bash
+cp .env.example .env
+```
+Fill in the `.env` file with your deployed Cloudflare Worker URLs (see backend setup below) and any public JSON playlist URLs you wish to use.
+
+Run the app locally in development mode:
+```bash
 npm run dev
 ```
 
----
+### 3. Setup the Backend (Cloudflare Workers)
+Navigate to the `workers` directory. You will need to deploy both the Auth Backend and the Stream Manager.
 
-## 📦 Building and Deployment
-
-### Web Player (GitHub Pages)
-The web player is configured to build using relative asset paths (`base: './'`), allowing it to run out-of-the-box on GitHub Pages or any static file hosting service.
-
-### Desktop App
-Build binaries for Windows, macOS, or Linux using Electron Builder:
 ```bash
-cd desktop-app
-npm run build
+cd ../workers/cloudflare-stream-manager
+npm install
+wrangler deploy
 ```
 
----
+**Important**: You must create a Cloudflare KV namespace and bind it as `SPORTIFY_STREAMS` in your `wrangler.toml` file.
+You also need to set a secure Admin Password for the dashboard:
+```bash
+echo "your-secure-password" | npx wrangler secret put ADMIN_PASSWORD
+```
 
-## 📜 License
+## ⚖️ Legal Disclaimer
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. 
+**Sportify** is purely a media player and management interface. 
+- The creator of this repository does **NOT** host, provide, or distribute any media content, streams, or copyright-protected material.
+- Any streams, JSON URLs, or M3U playlists provided as examples or defaults in the code (or used by the community) are sourced freely from the open-source internet.
+- The creator assumes **zero responsibility** for the content that users choose to consume or manage using this software. Use this application at your own risk and ensure you comply with the copyright laws of your jurisdiction.
 
-### What does this mean?
-* **Open Source**: The code is freely available for anyone to view and use.
-* **Copyleft (Share-Alike)**: If you modify this code or run it as a service on a server, you **must** also release your modified version under the exact same AGPLv3 license and share your source code. 
-* **Commercial Use**: You cannot take this code, modify it, and hide your changes in a closed-source or proprietary app.
-* **No Warranty**: The software is provided "as is", without warranty of any kind.
-
-See the [LICENSE](LICENSE) file for more details.
+## 🤝 Contributing
+Contributions are always welcome! Feel free to open a pull request or submit an issue if you find a bug or have a feature request.
