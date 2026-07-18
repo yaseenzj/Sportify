@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ReportModal from './ReportModal';
 
 export default function Topbar({ searchQuery, setSearchQuery, onOpenCustomModal, showToast, userEmail, setActiveCategory, onRefetch }) {
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const username = userEmail ? userEmail.split('@')[0] : 'Guest';
   const avatarUrl = userEmail 
     ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${userEmail}` 
@@ -20,6 +22,12 @@ export default function Topbar({ searchQuery, setSearchQuery, onOpenCustomModal,
       
       <div className="user-actions">
 
+        <button className="icon-btn" onClick={() => setIsReportOpen(true)} title="Report Issue">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+            <line x1="4" y1="22" x2="4" y2="15"></line>
+          </svg>
+        </button>
         <button className="icon-btn" onClick={onRefetch} title="Refresh Streams">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 2v6h-6"></path>
@@ -36,6 +44,7 @@ export default function Topbar({ searchQuery, setSearchQuery, onOpenCustomModal,
           <span>{username}</span>
         </div>
       </div>
+      <ReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} />
     </div>
   );
 }
