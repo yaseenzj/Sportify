@@ -15,7 +15,17 @@
 - **Beautiful UI**: Built with React, Vite, and Electron, featuring a premium dark mode aesthetic, glassmorphism, and smooth micro-animations.
 - **Cloudflare Powered**: The backend is lightweight and serverless, powered entirely by Cloudflare Workers and Cloudflare KV.
 
-## 🚀 Getting Started
+## 📥 Download & Install
+
+The easiest way to use Sportify is to download the pre-built desktop installer for Windows. 
+
+1. **[Click here to go to the Releases page](https://github.com/yaseenzj/Sportify/releases/latest)**
+2. Under the **Assets** section of the latest release, download the `Sportify-Setup-X.X.X.exe` file.
+3. Run the `.exe` file to install the app. It will automatically keep itself updated!
+
+---
+
+## 🚀 Developers: Getting Started
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v18+)
