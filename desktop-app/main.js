@@ -64,7 +64,9 @@ ipcMain.on('start-update', () => {
 
 ipcMain.on('check-update', () => {
   const { autoUpdater } = require('electron-updater');
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdatesAndNotify().catch(err => {
+    console.error("Error checking for updates:", err.message);
+  });
 });
 
 ipcMain.on('open-external', (e, url) => {
@@ -195,7 +197,9 @@ app.whenReady().then(() => {
     autoUpdater.quitAndInstall();
   });
 
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdatesAndNotify().catch(err => {
+    console.error("Error checking for auto-updates:", err.message);
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
