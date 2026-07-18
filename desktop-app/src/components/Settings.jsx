@@ -20,15 +20,11 @@ export default function Settings() {
     setPinStatus('');
 
     try {
-      const username = getStorage('sportify_username');
-      const token = getStorage('sportify_token');
+      const email = getStorage('sportify_username');
       const res = await fetch(`${CLOUDFLARE_URL}/update-pin`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ username, oldPin, newPin })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, oldPin, newPin })
       });
       
       const data = await res.json();
@@ -58,15 +54,21 @@ export default function Settings() {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
           <div>
             <h4 style={{ fontSize: '1rem', fontWeight: '500', marginBottom: '4px' }}>Hardware Acceleration</h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Turn off if the player goes black when resizing (requires restart)</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Keep ON for smooth UI performance (requires restart)</p>
           </div>
           <input 
             type="checkbox" 
             className="toggle-switch" 
-            defaultChecked={getStorage('sportify_hw_accel') === true} 
+            defaultChecked={getStorage('sportify_hw_accel') !== false} 
             onChange={(e) => {
               setStorage('sportify_hw_accel', e.target.checked);
-              alert("Please restart Sportify for the hardware acceleration changes to take effect.");
+              if (window.electronAPI) {
+                if (window.confirm("App needs to restart for changes to take effect. Restart now?")) {
+                  window.electronAPI.relaunchApp();
+                }
+              } else {
+                alert("Please restart Sportify for the hardware acceleration changes to take effect.");
+              }
             }}
           />
         </div>
@@ -84,7 +86,7 @@ export default function Settings() {
             <h4 style={{ fontSize: '1rem', fontWeight: '500', marginBottom: '4px' }}>Notifications</h4>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Show live match alerts</p>
           </div>
-          <input type="checkbox" className="toggle-switch" defaultChecked />
+          <input type="checkbox" className="toggle-switch" defaultChecked onChange={() => alert('Notifications are currently managed by the desktop system settings.')} />
         </div>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
@@ -97,12 +99,14 @@ export default function Settings() {
             onChange={(e) => setStorage('sportify_default_quality', e.target.value)}
             style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', outline: 'none', fontFamily: 'var(--font-family)' }}
           >
-            <option value="auto">Auto (Best Available)</option>
-            <option value="1080">1080p</option>
-            <option value="720">720p</option>
-            <option value="480">480p</option>
+            <option value="auto" style={{ background: '#1e1e24' }}>Auto (Best Available)</option>
+            <option value="1080" style={{ background: '#1e1e24' }}>1080p</option>
+            <option value="720" style={{ background: '#1e1e24' }}>720p</option>
+            <option value="480" style={{ background: '#1e1e24' }}>480p</option>
           </select>
         </div>
+
+
       </div>
       
       <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -152,6 +156,42 @@ export default function Settings() {
               {pinStatus}
             </div>
           )}
+        </div>
+      </div>
+
+      <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '32px' }}>
+        <h3 style={{ fontSize: '1.1rem', color: '#4ade80', marginBottom: '24px', fontWeight: '600' }}>About & Updates</h3>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h4 style={{ fontSize: '1rem', fontWeight: '500', marginBottom: '4px' }}>Sportify Version</h4>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Current: v{window.electronAPI ? window.electronAPI.getVersion() : 'Unknown'}
+            </p>
+          </div>
+          
+          <button 
+            onClick={() => {
+              if (window.electronAPI) {
+                window.electronAPI.checkUpdate();
+                alert("Checking for updates in the background...");
+              }
+            }}
+            style={{ 
+              padding: '10px 20px', 
+              background: 'rgba(255,255,255,0.1)', 
+              color: 'white', 
+              border: '1px solid rgba(255,255,255,0.1)', 
+              borderRadius: '8px', 
+              cursor: 'pointer', 
+              fontWeight: '500',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+            onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+          >
+            Check for Updates
+          </button>
         </div>
       </div>
     </div>

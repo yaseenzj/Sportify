@@ -12,9 +12,36 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
 
 
   useEffect(() => {
-    let mounted = true;
+    let isCancelled = false;
+
+    const teardownPlayer = async () => {
+      const videoEl = videoRef.current;
+      if (uiRef.current) {
+        try { await uiRef.current.destroy(); } catch(e) {}
+        uiRef.current = null;
+      }
+      if (playerRef.current) {
+        try { 
+          if (playerRef.current.detach) await playerRef.current.detach();
+          await playerRef.current.destroy(); 
+        } catch(e) {}
+        playerRef.current = null;
+      }
+      if (videoEl) {
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+        videoEl.load();
+        if (videoEl.setMediaKeys) {
+          try { await videoEl.setMediaKeys(null); } catch (e) {}
+        }
+      }
+    };
 
     async function initPlayer() {
+      if (isCancelled) return;
+      await teardownPlayer();
+      if (isCancelled) return;
+
       const video = videoRef.current;
       const container = videoContainerRef.current;
       
@@ -28,8 +55,8 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
         const hls = new window.Hls({
           maxLoadingDelay: 4,
           minAutoBitrate: 0,
-          lowLatencyMode: false, // Turn off low latency for better stability on IPTV
-          maxBufferLength: 30, // Buffer up to 30 seconds
+          lowLatencyMode: false,
+          maxBufferLength: 30,
           maxMaxBufferLength: 60,
           backBufferLength: 30
         });
@@ -44,36 +71,30 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
           };
         }
 
-        // Robust Hls.js Error Recovery (prevents freeze/black screen on stalls)
         let recoveryAttempts = 0;
         hls.on(window.Hls.Events.ERROR, (event, data) => {
           console.error("Hls.js error:", data);
           if (data.fatal) {
             switch (data.type) {
               case window.Hls.ErrorTypes.NETWORK_ERROR:
-                console.log("Fatal network error encountered, trying to recover...");
                 if (recoveryAttempts < 5) {
                   recoveryAttempts++;
                   hls.startLoad();
                 } else {
-                  console.error("Max network recovery attempts reached. Stream offline.");
                   if (showToast) showToast("Connection lost. Stream offline.");
                   setActiveSourceInfo("Stream Offline");
                 }
                 break;
               case window.Hls.ErrorTypes.MEDIA_ERROR:
-                console.log("Fatal media error encountered, trying to recover...");
                 if (recoveryAttempts < 5) {
                   recoveryAttempts++;
                   hls.recoverMediaError();
                 } else {
-                  console.error("Max media recovery attempts reached.");
                   if (showToast) showToast("Codec error. Failed to play stream.");
                   setActiveSourceInfo("Playback Error");
                 }
                 break;
               default:
-                console.error("Unrecoverable error encountered:", data);
                 hls.destroy();
                 if (showToast) showToast("Fatal playback error occurred.");
                 setActiveSourceInfo("Fatal Error");
@@ -90,20 +111,17 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
         let success = false;
         
         for (const attempt of allUrlsToTry) {
-           if (mounted && attempt === allUrlsToTry[0]) {
+           if (!isCancelled && attempt === allUrlsToTry[0]) {
              setActiveSourceInfo('Connecting to Primary Source...');
-           } else if (mounted) {
+           } else if (!isCancelled) {
              const backupIndex = allUrlsToTry.indexOf(attempt);
              setActiveSourceInfo(`Connecting to Backup Source ${backupIndex}...`);
            }
            
            try {
-             // Track stream in main process for referer/origin spoofing
              if (window.electronAPI) {
                window.electronAPI.setActiveStream(attempt.url, stream.headers || null);
              }
-             
-             // Reset recovery attempts for new URL
              recoveryAttempts = 0;
 
              await new Promise((resolve, reject) => {
@@ -115,7 +133,7 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
                hls.once(window.Hls.Events.MANIFEST_PARSED, (event, data) => {
                  if (!hasResolved) { 
                    hasResolved = true; 
-                   if (mounted) {
+                   if (!isCancelled) {
                      setHlsLevels(hls.levels || []);
                      setCurrentLevel(hls.currentLevel);
                    }
@@ -124,7 +142,7 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
                });
                
                hls.on(window.Hls.Events.LEVEL_SWITCHED, (event, data) => {
-                 if (mounted) setCurrentLevel(data.level);
+                 if (!isCancelled) setCurrentLevel(data.level);
                });
                
                hls.once(window.Hls.Events.ERROR, (event, data) => {
@@ -136,7 +154,7 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
              });
              
              success = true;
-             if (mounted) {
+             if (!isCancelled) {
                if (attempt === allUrlsToTry[0]) {
                  setActiveSourceInfo('Playing: Primary Source');
                } else {
@@ -155,7 +173,7 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
         
         if (!success) {
           if (showToast) showToast('Failed to load the stream and all backups.');
-          if (mounted) setActiveSourceInfo('All sources offline');
+          if (!isCancelled) setActiveSourceInfo('All sources offline');
         }
         return;
       }
@@ -164,11 +182,15 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
       console.log("Using Shaka Player");
       video.controls = false;
       
-      if (!window.shaka || !window.shaka.Player || !window.shaka.Player.isBrowserSupported()) {
-        console.error('Browser not supported for Shaka Player');
+      if (!window.shaka || !window.shaka.Player) {
+        console.error('Shaka Player not loaded');
         return;
       }
       window.shaka.polyfill.installAll();
+      if (!window.shaka.Player.isBrowserSupported()) {
+        console.error('Browser not supported for Shaka Player');
+        return;
+      }
 
       const player = new window.shaka.Player(video);
       playerRef.current = player;
@@ -199,12 +221,12 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
           restrictions: { maxHeight: maxHeight }
         },
         streaming: {
-          retryParameters: { maxAttempts: 100, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 0 },
+          retryParameters: { maxAttempts: 2, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 10000 },
           bufferingGoal: 30, rebufferingGoal: 2, bufferBehind: 30, jumpLargeGaps: true, stallEnabled: true,
           alwaysStreamText: false, lowLatencyMode: false, inaccurateManifestTolerance: 0.2
         },
         manifest: {
-          retryParameters: { maxAttempts: 100, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 0 },
+          retryParameters: { maxAttempts: 2, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 10000 },
           disableVideo: false, disableAudio: false,
           hls: {
             ignoreTextStreamFailures: true, ignoreImageStreamFailures: true,
@@ -214,6 +236,7 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
       };
       player.configure(playerConfig);
 
+      player.getNetworkingEngine().clearAllRequestFilters();
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         if (stream.headers) {
           for (const [key, value] of Object.entries(stream.headers)) {
@@ -233,40 +256,56 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
       const allUrlsToTry = [ { url: stream.url, clearKeys: stream.clearKeys }, ...(stream.backupUrls || []) ];
       let success = false;
       for (const attempt of allUrlsToTry) {
+        if (isCancelled) break;
         try {
-          if (mounted && attempt === allUrlsToTry[0]) setActiveSourceInfo('Connecting to Primary Source...');
-          else if (mounted) setActiveSourceInfo(`Connecting to Backup Source ${allUrlsToTry.indexOf(attempt)}...`);
+          if (!isCancelled && attempt === allUrlsToTry[0]) setActiveSourceInfo('Connecting to Primary Source...');
+          else if (!isCancelled) setActiveSourceInfo(`Connecting to Backup Source ${allUrlsToTry.indexOf(attempt)}...`);
 
           if (window.electronAPI) {
             window.electronAPI.setActiveStream(attempt.url, stream.headers || null);
           }
 
-          player.configure({ drm: { clearKeys: attempt.clearKeys ? attempt.clearKeys : {} } });
+          let drmConfig = {};
+          if (attempt.clearKeys && Object.keys(attempt.clearKeys).length > 0) {
+            drmConfig.clearKeys = attempt.clearKeys;
+          }
+          player.configure({ drm: drmConfig });
           
-          let mimeType = attempt.url.includes('.m3u8') ? 'application/x-mpegURL' : 
-                         (attempt.url.includes('.mpd') ? 'application/dash+xml' : undefined);
-          await player.load(attempt.url, null, mimeType);
+          let mimeType = undefined;
+          if (attempt.url.includes('.m3u8')) {
+            mimeType = 'application/x-mpegURL';
+          } else if (attempt.url.includes('.mpd') || !attempt.url.includes('.m3u8')) {
+            // Default to DASH if not specifically m3u8 to handle tokenized/hidden URLs
+            mimeType = 'application/dash+xml';
+          }
+          
+          await player.load(attempt.url, undefined, mimeType);
+          if (isCancelled) break;
           success = true;
           
-          if (mounted) {
+          if (!isCancelled) {
             if (attempt === allUrlsToTry[0]) setActiveSourceInfo('Playing: Primary Source');
             else setActiveSourceInfo(`Playing: Backup Source ${allUrlsToTry.indexOf(attempt)}`);
           }
           break;
         } catch (e) {
+          if (isCancelled) break;
           console.error('Failed to load stream attempt:', attempt.url, e);
+          try { await player.unload(); } catch (err) {}
         }
       }
 
+      if (isCancelled) return;
+
       if (success) {
-        if (mounted) {
+        if (!isCancelled) {
           video.muted = false;
           video.volume = 1;
           video.play().catch(e => console.error("Play failed", e));
         }
       } else {
         if (showToast) showToast('Failed to load the stream and all backups. It may be offline.');
-        if (mounted) setActiveSourceInfo('All sources offline');
+        if (!isCancelled) setActiveSourceInfo('All sources offline');
       }
     }
 
@@ -277,15 +316,10 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
     }
 
     return () => {
-      mounted = false;
+      isCancelled = true;
+      teardownPlayer();
       if (window.electronAPI) {
         window.electronAPI.clearActiveStream();
-      }
-      if (uiRef.current) {
-        uiRef.current.destroy();
-      }
-      if (playerRef.current) {
-        playerRef.current.destroy();
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -12,8 +12,9 @@ export default function Onboarding({ onComplete }) {
   const [authMode, setAuthMode] = useState('signup'); // 'signup' or 'login'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [gender, setGender] = useState('Male');
   const [pin, setPin] = useState('');
-  const [accessCode, setAccessCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,7 +24,7 @@ export default function Onboarding({ onComplete }) {
 
   const handleAuth = async () => {
     setErrorMsg('');
-    if (!username || !password || (authMode === 'signup' && !accessCode)) {
+    if (!username || !password || (authMode === 'signup' && (!nickname || !gender))) {
       setErrorMsg('Please fill all fields');
       return;
     }
@@ -51,7 +52,7 @@ export default function Onboarding({ onComplete }) {
       
       const endpoint = authMode === 'signup' ? '/register' : '/login';
       const bodyData = authMode === 'signup' 
-        ? { username, password, accessCode }
+        ? { username, password, nickname, gender } 
         : { username, password };
 
       const res = await fetch(`${CLOUDFLARE_URL}${endpoint}`, {
@@ -70,8 +71,6 @@ export default function Onboarding({ onComplete }) {
       if (data.username) setStorage('sportify_username', data.username);
       else setStorage('sportify_username', username);
       
-      if (data.token) setStorage('sportify_token', data.token);
-      
       // If backend returns a pin (login), save it and skip step 3, else go to step 3
       if (authMode === 'login' && data.pin) {
         setStorage('sportify_pin', data.pin);
@@ -88,24 +87,29 @@ export default function Onboarding({ onComplete }) {
   };
 
   const handleFinishSetup = async () => {
+    setIsLoading(true);
+    setErrorMsg('');
     try {
-      const username = getStorage('sportify_username');
-      const token = getStorage('sportify_token');
-      if (username && token) {
-        await fetch(`${CLOUDFLARE_URL}/update-pin`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ username, oldPin: "0000", newPin: pin })
-        });
+      const user = getStorage('sportify_username');
+      
+      const res = await fetch(`${CLOUDFLARE_URL}/update-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, oldPin: "0000", newPin: pin })
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save PIN");
       }
+      
+      setStorage('sportify_pin', pin);
+      onComplete();
     } catch (err) {
-      console.error("Failed to sync initial PIN to server", err);
+      setErrorMsg(err.message);
+    } finally {
+      setIsLoading(false);
     }
-    setStorage('sportify_pin', pin);
-    onComplete();
   };
 
   return (
@@ -212,11 +216,21 @@ export default function Onboarding({ onComplete }) {
                   <>
                     <input 
                       type="text" 
-                      placeholder="Beta Access Code" 
-                      className="auth-input access-code" 
-                      value={accessCode}
-                      onChange={(e) => setAccessCode(e.target.value)}
+                      placeholder="Nickname" 
+                      className="auth-input" 
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
                     />
+                    <select 
+                      className="auth-input" 
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      style={{ background: 'rgba(0,0,0,0.3)', color: 'white' }}
+                    >
+                      <option value="Male" style={{ background: '#1e1e24' }}>Male</option>
+                      <option value="Female" style={{ background: '#1e1e24' }}>Female</option>
+                      <option value="Other" style={{ background: '#1e1e24' }}>Other</option>
+                    </select>
                   </>
                 )}
 
@@ -252,9 +266,9 @@ export default function Onboarding({ onComplete }) {
                   className="onboarding-btn-next" 
                   onClick={handleFinishSetup}
                   style={{ marginTop: '20px', width: '100%', opacity: pin.length === 4 ? 1 : 0.5 }}
-                  disabled={pin.length !== 4}
+                  disabled={pin.length !== 4 || isLoading}
                 >
-                  Enter Dashboard <span style={{ fontSize: '1.2rem' }}>→</span>
+                  {isLoading ? 'Saving...' : <>Enter Dashboard <span style={{ fontSize: '1.2rem' }}>→</span></>}
                 </button>
 
                 {errorMsg && <div className="auth-error">{errorMsg}</div>}

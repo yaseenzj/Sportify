@@ -1,0 +1,8 @@
+name = "sportify-stream-manager-beta"
+main = "index.js"
+compatibility_date = "2024-03-01"
+
+# You will need to replace the id below with your actual KV namespace ID
+kv_namespaces = [
+  { binding = "SPORTIFY_STREAMS", id = "078ef343f68a4ae0aa43528ce4a3a99d" }
+]

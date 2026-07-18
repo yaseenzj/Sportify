@@ -1,0 +1,9 @@
+name = "sportify-auth-backend"
+main = "index.js"
+compatibility_date = "2023-10-10"
+
+[[kv_namespaces]]
+binding = "SPORTIFY_USERS"
+id = "99984ad4bc454f5b9e2c162f11be3922"
+# Note: You must run `npx wrangler kv:namespace create "SPORTIFY_USERS"` 
+# and paste the resulting ID above before deploying!

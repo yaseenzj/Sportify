@@ -1,4 +1,4 @@
-:root {
+:root, [data-theme="classic-dark"] {
     --bg-main: #141517;
     --bg-sidebar: #1e1e24;
     --bg-card: #22232a;
@@ -14,6 +14,30 @@
     --font-family: 'Inter', sans-serif;
 }
 
+[data-theme="gradient"] {
+    --bg-main: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    --bg-sidebar: rgba(20, 15, 45, 0.4);
+    --bg-card: rgba(36, 36, 62, 0.4);
+    --bg-hover: rgba(48, 43, 99, 0.6);
+    --text-main: #f0f1f5;
+    --text-muted: #b0b3c6;
+    --accent: #9d4edd;
+    --accent-hover: #c77dff;
+    --border-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="liquid-glass"] {
+    --bg-main: radial-gradient(circle at top right, #1a1a2e, #16213e, #0f3460);
+    --bg-sidebar: rgba(15, 52, 96, 0.15);
+    --bg-card: rgba(255, 255, 255, 0.03);
+    --bg-hover: rgba(255, 255, 255, 0.08);
+    --text-main: #ffffff;
+    --text-muted: #a1a1aa;
+    --accent: #00f2fe;
+    --accent-hover: #4facfe;
+    --border-color: rgba(255, 255, 255, 0.08);
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -22,7 +46,7 @@
 
 body {
     font-family: var(--font-family);
-    background-color: var(--bg-main);
+    background: var(--bg-main);
     color: var(--text-main);
     overflow: hidden; /* Hide main scroll, handle in layout */
     height: 100vh;
@@ -37,7 +61,9 @@ body {
 /* Sidebar */
 .sidebar {
     width: 240px;
-    background-color: var(--bg-sidebar);
+    background: var(--bg-sidebar);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     display: flex;
     flex-direction: column;
     padding: 24px 16px;
@@ -483,12 +509,15 @@ body {
 
 /* Stream Cards (Steam style) */
 .stream-card {
-    background-color: var(--bg-card);
+    background: var(--bg-card);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-radius: var(--radius-md);
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     position: relative;
+    border: 1px solid var(--border-color);
 }
 
 .stream-card:hover {
@@ -572,7 +601,7 @@ body {
 }
 
 .modal-content {
-    background-color: var(--bg-main);
+    background: var(--bg-main);
     width: 90%;
     max-width: 1200px;
     height: 80vh;
@@ -589,7 +618,8 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 20px 24px;
-    background-color: var(--bg-sidebar);
+    background: var(--bg-sidebar);
+    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
 }
 

@@ -43,19 +43,11 @@ export default function App() {
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  const [favorites, setFavorites] = useState(() => {
-    try {
-      const saved = getStorage('sportify_favorites');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [favorites, setFavorites] = useState([]);
 
   const handleOnboardingComplete = () => {
     setStorage('sportify_setup_complete', 'true');
     sessionStorage.setItem('sportify_unlocked', 'true');
-    setIsLocked(false);
     setIsOnboarding(false);
     setShowSplash(false);
   };
@@ -68,6 +60,11 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [loading, showSplash]);
+
+  React.useEffect(() => {
+    const theme = getStorage('sportify_theme') || 'classic-dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  }, []);
 
   React.useEffect(() => {
     if (window.electronAPI && window.electronAPI.onUpdateAvailable) {
@@ -103,25 +100,18 @@ export default function App() {
 
   React.useEffect(() => {
     if (userName) {
-      const token = getStorage('sportify_token');
-      fetch(`${API_BASE}/favorites?username=${encodeURIComponent(userName)}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      fetch(`${API_BASE}/get-user-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: userName })
       })
-        .then(async res => {
-          if (res.status === 404 || res.status === 401) {
-            handleLogout();
-            showToast('Account removed by ZJ Labs.');
-            throw new Error("Session expired");
-          }
-          return res.json();
-        })
+        .then(async res => res.json())
         .then(data => {
-          if (data && data.success && Array.isArray(data.favorites)) {
+          if (data && Array.isArray(data.favorites)) {
             setFavorites(data.favorites);
-            setStorage('sportify_favorites', JSON.stringify(data.favorites));
           }
         })
-        .catch(err => console.error("Failed to load favorites", err));
+        .catch(err => console.error("Failed to load user data from Cloudflare", err));
     }
   }, [userName, handleLogout]);
 
@@ -136,25 +126,23 @@ export default function App() {
         showToast('Added to favorites');
       }
       
-      setStorage('sportify_favorites', JSON.stringify(newFavs));
-      
       if (userName) {
-        const token = getStorage('sportify_token');
-        fetch(`${API_BASE}/favorites`, {
+        // Fetch current data first so we don't overwrite history
+        fetch(`${API_BASE}/get-user-data`, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ username: userName, favorites: newFavs })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: userName })
         })
-        .then(res => {
-          if (res.status === 404 || res.status === 401) {
-            handleLogout();
-            showToast('Account removed by administrator.');
-          }
+        .then(res => res.json())
+        .then(data => {
+          const currentHistory = data.watchHistory || [];
+          return fetch(`${API_BASE}/update-user-data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: userName, data: { favorites: newFavs, watchHistory: currentHistory } })
+          });
         })
-        .catch(err => console.error("Failed to sync favorites", err));
+        .catch(err => console.error("Failed to sync favorites to Cloudflare", err));
       }
       
       return newFavs;
@@ -268,6 +256,15 @@ export default function App() {
                     setPinError('');
                     sessionStorage.setItem('sportify_unlocked', 'true');
                     setShowSplash(true); // show splash after unlocking so it transitions nicely
+                    
+                    const user = getStorage('sportify_username');
+                    if (user) {
+                      fetch(`${import.meta.env.VITE_API_BASE || ""}/update-last-active`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: user })
+                      }).catch(e => console.error("Failed to update last active ping", e));
+                    }
                   } else {
                     setPinError('Incorrect PIN');
                   }
@@ -346,6 +343,7 @@ export default function App() {
 
       {activeStreamId && (
         <PlayerModal 
+          key={activeStreamId}
           stream={streams.find(s => s.id === activeStreamId)} 
           isFavorite={favorites.includes(activeStreamId)}
           onToggleFavorite={() => toggleFavorite(activeStreamId)}
@@ -359,6 +357,7 @@ export default function App() {
           onClose={() => setIsCustomModalOpen(false)} 
           onPlay={handleCustomStreamPlay} 
           showToast={showToast}
+          userEmail={userName}
         />
       )}
 

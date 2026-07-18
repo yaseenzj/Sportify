@@ -2,8 +2,19 @@ const { app, BrowserWindow, session, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Create a clean directory structure in AppData
+const rootDataPath = path.join(app.getPath('appData'), 'Sportify_byZJ');
+// Chromium dumps dozens of folders. Put them all in a 'SystemCore' subfolder
+app.setPath('userData', path.join(rootDataPath, 'SystemCore'));
+
+// Ensure root path exists before we write to store
+if (!fs.existsSync(rootDataPath)) {
+  fs.mkdirSync(rootDataPath, { recursive: true });
+}
+
 // Persistent storage fallback since localStorage can clear on file://
-const storePath = path.join(app.getPath('userData'), 'sportify_data.json');
+// Save our human-readable JSON at the root instead of buried with Chromium cache
+const storePath = path.join(rootDataPath, 'sportify_data.json');
 function readStore() {
   try { return JSON.parse(fs.readFileSync(storePath, 'utf8')); } 
   catch(e) { return {}; }
@@ -26,17 +37,20 @@ ipcMain.on('clear-active-stream', () => {
 });
 
 ipcMain.on('get-store', (e, key) => {
-  e.returnValue = readStore()[key] || null;
+  const store = readStore();
+  e.returnValue = store.hasOwnProperty(key) ? store[key] : null;
 });
 ipcMain.on('set-store', (e, key, val) => {
   const store = readStore();
   store[key] = val;
   writeStore(store);
+  e.returnValue = true;
 });
 ipcMain.on('remove-store', (e, key) => {
   const store = readStore();
   delete store[key];
   writeStore(store);
+  e.returnValue = true;
 });
 
 ipcMain.on('get-version', (e) => {
@@ -48,8 +62,18 @@ ipcMain.on('start-update', () => {
   autoUpdater.downloadUpdate();
 });
 
+ipcMain.on('check-update', () => {
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
 ipcMain.on('open-external', (e, url) => {
   require('electron').shell.openExternal(url);
+  app.quit();
+});
+
+ipcMain.on('relaunch-app', () => {
+  app.relaunch();
   app.quit();
 });
 
@@ -60,6 +84,7 @@ function createWindow() {
     width: 1280,
     height: 720,
     title: "Sportify Premium Dashboard",
+    icon: path.join(__dirname, 'src', 'assets', 'logo.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -115,6 +140,10 @@ const hwAccel = readStore()['sportify_hw_accel'];
 if (hwAccel === false) {
   app.disableHardwareAcceleration();
 }
+
+app.commandLine.appendSwitch('ignore-connections-limit', '*');
+// Force software decryption for Widevine so we can keep Hardware Acceleration ON for the UI without breaking MPD streams.
+app.commandLine.appendSwitch('disable-features', 'HardwareSecureDecryption');
 
 app.whenReady().then(() => {
   // Override headers to simulate a normal browser or bypass specific blocks

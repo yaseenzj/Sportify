@@ -1,6 +1,6 @@
 {
   "name": "sportify_byzj",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -33,6 +33,7 @@
   "build": {
     "appId": "com.sportify.app",
     "productName": "Sportify",
+    "icon": "src/assets/logo.png",
     "afterPack": "./scripts/strip-locales.js",
     "directories": {
       "output": "dist"

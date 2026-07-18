@@ -99,7 +99,7 @@ export function useStreams() {
                   const keyStr = line.split('=')[1];
                   if (keyStr) {
                     const [kid, key] = keyStr.split(':');
-                    if (kid && key) {
+                    if (kid && key && kid.length === 32 && key.length === 32) {
                       currentStream.clearKeys = { [kid]: key };
                     }
                   }
@@ -127,7 +127,10 @@ export function useStreams() {
         }
 
         if (mounted) {
-          setStreams(allStreams);
+          setStreams(prev => {
+            const customStreams = prev.filter(s => s.id.startsWith('custom_') || s.id.startsWith('fancode_'));
+            return [...allStreams, ...customStreams];
+          });
           setLoading(false);
         }
       } catch (err) {
@@ -143,7 +146,7 @@ export function useStreams() {
 
     const intervalId = setInterval(() => {
       if (mounted) fetchStreams();
-    }, 60000); // Auto-sync every 60 seconds
+    }, 15000); // Auto-sync every 15 seconds
 
     return () => {
       mounted = false;

@@ -9,8 +9,6 @@ node_modules/
 /web-app/dist/
 /web-app/dist-ssr/
 
-# Cloudflare Workers (Contains credentials and stream management code)
-/workers/
 
 # Gitignored local data (Contains playlists and streams)
 /data/

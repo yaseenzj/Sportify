@@ -1,20 +1,49 @@
 import React, { useState, useEffect } from 'react';
 
-export default function CustomStreamModal({ onClose, onPlay, showToast }) {
+export default function CustomStreamModal({ onClose, onPlay, showToast, userEmail }) {
   const [url, setUrl] = useState('');
   const [clearKeyFormat, setClearKeyFormat] = useState('');
   const [history, setHistory] = useState([]);
+  const [viewAllHistory, setViewAllHistory] = useState(false);
+  const API_BASE = import.meta.env.VITE_API_BASE || "";
 
   useEffect(() => {
-    try {
-      const savedHistory = localStorage.getItem('sportify_custom_history');
-      if (savedHistory) {
-        setHistory(JSON.parse(savedHistory));
-      }
-    } catch (e) {
-      console.error("Failed to load history", e);
+    if (userEmail) {
+      fetch(`${API_BASE}/get-user-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: userEmail })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && Array.isArray(data.watchHistory)) {
+          setHistory(data.watchHistory);
+        }
+      })
+      .catch(e => console.error("Failed to load history from Cloudflare", e));
     }
-  }, []);
+  }, [userEmail]);
+
+  const syncHistoryToCloud = (newHistory) => {
+    if (userEmail) {
+      // Fetch current data first to avoid overwriting favorites
+      fetch(`${API_BASE}/get-user-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: userEmail })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const currentFavorites = data.favorites || [];
+        return fetch(`${API_BASE}/update-user-data`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: userEmail, data: { favorites: currentFavorites, watchHistory: newHistory } })
+        });
+      })
+      .catch(err => console.error("Failed to sync history to Cloudflare", err));
+    }
+  };
 
   const saveToHistory = (streamUrl, keyStr) => {
     const newItem = {
@@ -29,18 +58,18 @@ export default function CustomStreamModal({ onClose, onPlay, showToast }) {
     const updated = [newItem, ...filtered].slice(0, 50); // keep last 50
     
     setHistory(updated);
-    localStorage.setItem('sportify_custom_history', JSON.stringify(updated));
+    syncHistoryToCloud(updated);
   };
 
   const removeFromHistory = (id) => {
     const updated = history.filter(item => item.id !== id);
     setHistory(updated);
-    localStorage.setItem('sportify_custom_history', JSON.stringify(updated));
+    syncHistoryToCloud(updated);
   };
 
   const clearHistory = () => {
     setHistory([]);
-    localStorage.removeItem('sportify_custom_history');
+    syncHistoryToCloud([]);
   };
 
   const getFilename = (fullUrl) => {
@@ -107,45 +136,70 @@ export default function CustomStreamModal({ onClose, onPlay, showToast }) {
           </button>
         </div>
         <div className="modal-body" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
-          <input 
-            type="text" 
-            className="custom-input" 
-            placeholder="Stream URL (.m3u8, .mpd)"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoFocus
-          />
-          
-          <h4 style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>
-            DRM (ClearKey) - Optional
-          </h4>
-          <input 
-            type="text" 
-            className="custom-input" 
-            placeholder="kid:key (e.g. 1234...abcd:5678...efgh)"
-            value={clearKeyFormat}
-            onChange={(e) => setClearKeyFormat(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          
-          <button className="primary-btn" style={{ marginTop: '8px', justifyContent: 'center' }} onClick={() => handlePlay()}>
-            Play Stream
-          </button>
+          {!viewAllHistory && (
+            <>
+              <input 
+                type="text" 
+                className="custom-input" 
+                placeholder="Stream URL (.m3u8, .mpd)"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+              />
+              
+              <h4 style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                DRM (ClearKey) - Optional
+              </h4>
+              <input 
+                type="text" 
+                className="custom-input" 
+                placeholder="kid:key (e.g. 1234...abcd:5678...efgh)"
+                value={clearKeyFormat}
+                onChange={(e) => setClearKeyFormat(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              
+              <button className="primary-btn" style={{ marginTop: '16px', padding: '12px', fontSize: '1rem', justifyContent: 'center', width: '100%', cursor: 'pointer', borderRadius: '8px', border: 'none', background: 'var(--accent, #3498db)', color: 'white', fontWeight: 'bold' }} onClick={() => handlePlay()}>
+                Play Stream
+              </button>
+            </>
+          )}
 
           {history.length > 0 && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.1))', paddingBottom: '8px' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Stream History</h3>
-                <button 
-                  onClick={clearHistory}
-                  style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#ff4757', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}
-                >
-                  Clear History
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {viewAllHistory ? (
+                    <>
+                      <button 
+                        onClick={() => setViewAllHistory(false)}
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--text-muted, #94a3b8)', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}
+                      >
+                        Go Back
+                      </button>
+                      <button 
+                        onClick={() => { clearHistory(); setViewAllHistory(false); }}
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#ff4757', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}
+                      >
+                        Clear All
+                      </button>
+                    </>
+                  ) : (
+                    history.length > 2 && (
+                      <button 
+                        onClick={() => setViewAllHistory(true)}
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#3498db', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}
+                      >
+                        View All
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {history.map(item => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
+                {(viewAllHistory ? history : history.slice(0, 2)).map(item => (
                   <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                     <div 
                       style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, overflow: 'hidden', cursor: 'pointer' }}

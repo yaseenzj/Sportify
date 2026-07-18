@@ -1,0 +1,11 @@
+name = "sportify-stream-manager"
+main = "index.js"
+compatibility_date = "2024-03-01"
+
+kv_namespaces = [
+  { binding = "SPORTIFY_STREAMS", id = "078ef343f68a4ae0aa43528ce4a3a99d" }
+]
+
+[triggers]
+crons = ["0 */5 * * *"]
+

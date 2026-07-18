@@ -38,7 +38,7 @@ export default function Hero({ onPlay }) {
 
   useEffect(() => {
     let mounted = true;
-    fetch('https://raw.githubusercontent.com/kajju027/Fancode-Events-Json/refs/heads/main/fancode.json')
+    fetch(import.meta.env.VITE_FANCODE_JSON_URL)
       .then(r => r.json())
       .then(data => {
         if (mounted && data && data.matches) {
@@ -94,7 +94,7 @@ export default function Hero({ onPlay }) {
     let streamUrl = "";
     if (currentSlide.streams) {
       if (currentSlide.streams.backup) {
-        streamUrl = currentSlide.streams.backup.fancode_cdn || currentSlide.streams.backup.fancode_cdn_v1 || "";
+        streamUrl = currentSlide.streams.backup.fancode_cdn_v1 || currentSlide.streams.backup.fancode_cdn || "";
       }
       if (!streamUrl) {
         streamUrl = currentSlide.streams.primary || currentSlide.streams.fancode_cdn || "";
