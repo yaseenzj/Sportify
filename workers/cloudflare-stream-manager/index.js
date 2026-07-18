@@ -590,25 +590,25 @@ export default {
               listDiv.innerHTML = '<p style="color: var(--text-muted)">Loading reports...</p>';
               try {
                 const res = await fetch('/api/admin/reports', {
-                  headers: { 'Authorization': `Bearer ${currentPassword}` }
+                  headers: { 'Authorization': \`Bearer \${currentPassword}\` }
                 });
                 if (!res.ok) throw new Error('Failed to load reports');
                 const data = await res.json();
                 
                 if (data.reports && data.reports.length > 0) {
-                  listDiv.innerHTML = data.reports.map(r => `
+                  listDiv.innerHTML = data.reports.map(r => \`
                     <div style="background: var(--surface); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
                       <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                        <strong style="color: var(--primary)">${r.username}</strong>
-                        <span style="color: var(--text-muted); font-size: 0.85rem;">${new Date(r.timestamp).toLocaleString()}</span>
+                        <strong style="color: var(--primary)">\${r.username}</strong>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">\${new Date(r.timestamp).toLocaleString()}</span>
                       </div>
-                      <p style="margin-bottom: 16px; white-space: pre-wrap;">${r.message}</p>
-                      ${r.screenshot ? `<img src="${r.screenshot}" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border);" />` : ''}
+                      <p style="margin-bottom: 16px; white-space: pre-wrap;">\${r.message}</p>
+                      \${r.screenshot ? \`<img src="\${r.screenshot}" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border);" />\` : ''}
                       <div>
-                        <button onclick="deleteReport('${r.id}')" style="background: #ff4d4d; width: auto; padding: 8px 16px; font-size: 0.9rem;">Delete Report</button>
+                        <button onclick="deleteReport('\${r.id}')" style="background: #ff4d4d; width: auto; padding: 8px 16px; font-size: 0.9rem;">Delete Report</button>
                       </div>
                     </div>
-                  `).join('');
+                  \`).join('');
                 } else {
                   listDiv.innerHTML = '<p style="color: var(--text-muted)">No reports found. You\\'re all caught up!</p>';
                 }
@@ -622,7 +622,7 @@ export default {
               try {
                 const res = await fetch('/api/admin/delete-report', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentPassword}` },
+                  headers: { 'Content-Type': 'application/json', 'Authorization': \`Bearer \${currentPassword}\` },
                   body: JSON.stringify({ id })
                 });
                 if (res.ok) {

@@ -79,6 +79,12 @@ export default function App() {
       window.electronAPI.onUpdateDownloaded(() => {
         setUpdateStatus('ready');
       });
+      window.electronAPI.onUpdateNotAvailable(() => {
+        alert("You are already on the latest version of Sportify!");
+      });
+      window.electronAPI.onUpdateError((err) => {
+        alert("Error checking for updates: " + err);
+      });
     }
   }, []);
 
