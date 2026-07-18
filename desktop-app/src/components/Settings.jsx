@@ -46,7 +46,31 @@ export default function Settings() {
 
   return (
     <div style={{ padding: '32px 40px', color: 'white', maxWidth: '800px', margin: '0 auto' }}>
-      <h2 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '32px', letterSpacing: '-0.5px' }}>Settings</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <h2 style={{ fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.5px', margin: 0 }}>Settings</h2>
+        <button 
+          onClick={() => {
+            if (window.electronAPI) {
+              window.electronAPI.checkUpdate();
+              alert("Checking for updates in the background...");
+            }
+          }}
+          style={{ 
+            padding: '10px 20px', 
+            background: 'rgba(255,255,255,0.1)', 
+            color: 'white', 
+            border: '1px solid rgba(255,255,255,0.1)', 
+            borderRadius: '8px', 
+            cursor: 'pointer', 
+            fontWeight: '500',
+            transition: 'all 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+          onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+        >
+          Check for Updates
+        </button>
+      </div>
       
       <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '32px' }}>
         <h3 style={{ fontSize: '1.1rem', color: '#9d4edd', marginBottom: '24px', fontWeight: '600' }}>Preferences</h3>
@@ -159,40 +183,11 @@ export default function Settings() {
         </div>
       </div>
 
-      <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '32px' }}>
-        <h3 style={{ fontSize: '1.1rem', color: '#4ade80', marginBottom: '24px', fontWeight: '600' }}>About & Updates</h3>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h4 style={{ fontSize: '1rem', fontWeight: '500', marginBottom: '4px' }}>Sportify Version</h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Current: v{window.electronAPI ? window.electronAPI.getVersion() : 'Unknown'}
-            </p>
-          </div>
-          
-          <button 
-            onClick={() => {
-              if (window.electronAPI) {
-                window.electronAPI.checkUpdate();
-                alert("Checking for updates in the background...");
-              }
-            }}
-            style={{ 
-              padding: '10px 20px', 
-              background: 'rgba(255,255,255,0.1)', 
-              color: 'white', 
-              border: '1px solid rgba(255,255,255,0.1)', 
-              borderRadius: '8px', 
-              cursor: 'pointer', 
-              fontWeight: '500',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
-            onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
-          >
-            Check for Updates
-          </button>
-        </div>
+      <div style={{ marginTop: '40px', padding: '24px', background: 'rgba(255, 77, 77, 0.05)', borderRadius: '12px', border: '1px solid rgba(255, 77, 77, 0.1)' }}>
+        <h4 style={{ color: '#ff4d4d', fontSize: '1rem', marginBottom: '8px', fontWeight: '600' }}>Legal Disclaimer</h4>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: '1.6' }}>
+          Sportify is purely a media player and management interface. We do not host, provide, or distribute any media content, streams, or copyright-protected material. Any streams, JSON URLs, or M3U playlists provided as examples or defaults in the code are sourced freely from the open-source internet. We assume zero responsibility for the content that users choose to consume or manage using this software. Use this application at your own risk.
+        </p>
       </div>
     </div>
   );
