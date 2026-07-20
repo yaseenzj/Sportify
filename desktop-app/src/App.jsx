@@ -11,6 +11,7 @@ import Onboarding from './components/Onboarding';
 import PinInput from './components/PinInput';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
+import LanguageModal from './components/LanguageModal';
 import { getStorage, setStorage, removeStorage } from './storage';
 
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [languageFilter, setLanguageFilter] = useState('all');
   const [activeStreamId, setActiveStreamId] = useState(null);
+  const [languageSelectStream, setLanguageSelectStream] = useState(null);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -156,9 +158,28 @@ export default function App() {
   };
 
   const handleCustomStreamPlay = (customStream) => {
-    setStreams(prev => [...prev, customStream]);
-    setIsCustomModalOpen(false);
-    setActiveStreamId(customStream.id);
+    if (customStream.language === 'multi' && customStream.languageUrls && Object.keys(customStream.languageUrls).length > 1) {
+      setLanguageSelectStream(customStream);
+      setIsCustomModalOpen(false);
+    } else {
+      setStreams(prev => {
+        if (prev.find(s => s.id === customStream.id)) return prev;
+        return [...prev, customStream];
+      });
+      setIsCustomModalOpen(false);
+      setActiveStreamId(customStream.id);
+    }
+  };
+
+  const handleLanguageSelect = (lang, url) => {
+    if (languageSelectStream) {
+      const updatedStream = { ...languageSelectStream, url: url, language: lang };
+      setStreams(prev => {
+        return prev.map(s => s.id === updatedStream.id ? updatedStream : s);
+      });
+      setLanguageSelectStream(null);
+      setActiveStreamId(updatedStream.id);
+    }
   };
 
   const filteredStreams = useMemo(() => {
@@ -171,7 +192,8 @@ export default function App() {
       'cricket': ['cricket', 'willow', 'sky sports cricket', 'star sports'],
       'f1': ['f1', 'formula', 'sky sports f1', 'motorsport'],
       'motogp': ['motogp', 'moto gp', 'tnt sports'],
-      'golf': ['golf', 'pga']
+      'golf': ['golf', 'pga'],
+      'basketball': ['basketball', 'nba']
     };
 
     return streams.filter(stream => {
@@ -328,12 +350,7 @@ export default function App() {
             
             <div className="filters-section">
               <h3 className="section-title">{activeCategory === 'favorites' ? 'Your Favorites' : 'Live Channels'}</h3>
-              <div className="tabs">
-                <button className={`tab-btn ${languageFilter === 'all' ? 'active' : ''}`} onClick={() => setLanguageFilter('all')}>All</button>
-                <button className={`tab-btn ${languageFilter === 'english' ? 'active' : ''}`} onClick={() => setLanguageFilter('english')}>English</button>
-                <button className={`tab-btn ${languageFilter === 'hindi' ? 'active' : ''}`} onClick={() => setLanguageFilter('hindi')}>Hindi</button>
-                <button className={`tab-btn ${languageFilter === 'others' ? 'active' : ''}`} onClick={() => setLanguageFilter('others')}>Others</button>
-              </div>
+
             </div>
 
             {loading ? (
@@ -341,7 +358,14 @@ export default function App() {
             ) : filteredStreams.length === 0 ? (
               <div className="loading-state">{activeCategory === 'favorites' ? "You haven't favorited any streams yet." : "No streams found."}</div>
             ) : (
-              <StreamGrid streams={filteredStreams} onPlay={(id) => { setActiveStreamId(id); }} favorites={favorites} toggleFavorite={toggleFavorite} />
+              <StreamGrid streams={filteredStreams} onPlay={(id) => { 
+                const stream = streams.find(s => s.id === id);
+                if (stream && stream.language === 'multi' && stream.languageUrls && Object.keys(stream.languageUrls).length > 1) {
+                  setLanguageSelectStream(stream);
+                } else {
+                  setActiveStreamId(id); 
+                }
+              }} favorites={favorites} toggleFavorite={toggleFavorite} />
             )}
           </div>
         )}
@@ -364,6 +388,14 @@ export default function App() {
           onPlay={handleCustomStreamPlay} 
           showToast={showToast}
           userEmail={userName}
+        />
+      )}
+
+      {languageSelectStream && (
+        <LanguageModal 
+          stream={languageSelectStream}
+          onSelectLanguage={handleLanguageSelect}
+          onClose={() => setLanguageSelectStream(null)}
         />
       )}
 

@@ -43,8 +43,36 @@ export default function Hero({ onPlay }) {
       .then(data => {
         if (mounted && data && data.matches) {
           const matchesWithImages = data.matches.filter(m => m.image && m.status !== 'COMPLETED');
-          if (matchesWithImages.length > 0) {
-            setSlides(matchesWithImages.slice(0, 5)); // Take top 5
+          
+          const uniqueSlidesMap = new Map();
+          matchesWithImages.forEach((match) => {
+            const matchId = match.match_id || match.title;
+            if (uniqueSlidesMap.has(matchId)) {
+               const existing = uniqueSlidesMap.get(matchId);
+               let streamUrl = "";
+               if (match.streams) {
+                 if (match.streams.backup) streamUrl = match.streams.backup.fancode_cdn_v1 || match.streams.backup.fancode_cdn || "";
+                 if (!streamUrl) streamUrl = match.streams.primary || match.streams.fancode_cdn || "";
+               }
+               if (streamUrl && match.language) {
+                 existing.languageUrls[match.language.toUpperCase()] = streamUrl;
+               }
+            } else {
+               let streamUrl = "";
+               if (match.streams) {
+                 if (match.streams.backup) streamUrl = match.streams.backup.fancode_cdn_v1 || match.streams.backup.fancode_cdn || "";
+                 if (!streamUrl) streamUrl = match.streams.primary || match.streams.fancode_cdn || "";
+               }
+               const lang = match.language ? match.language.toUpperCase() : 'UNKNOWN';
+               match.languageUrls = {};
+               if (streamUrl) match.languageUrls[lang] = streamUrl;
+               uniqueSlidesMap.set(matchId, match);
+            }
+          });
+          
+          const uniqueSlides = Array.from(uniqueSlidesMap.values());
+          if (uniqueSlides.length > 0) {
+            setSlides(uniqueSlides.slice(0, 5)); // Take top 5 unique
           }
         }
       })
@@ -109,7 +137,9 @@ export default function Hero({ onPlay }) {
         url: streamUrl,
         source: 'live',
         category: currentSlide.category,
-        clearKeys: null
+        clearKeys: null,
+        languageUrls: currentSlide.languageUrls || {},
+        language: currentSlide.languageUrls && Object.keys(currentSlide.languageUrls).length > 1 ? 'multi' : 'ENGLISH'
       });
     }
   };

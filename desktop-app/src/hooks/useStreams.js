@@ -10,38 +10,60 @@ export function useStreams() {
 
     async function fetchStreams() {
       try {
-        // Try fetching from a remote server first so you can update streams without updating the app
-        const REMOTE_JSON_URL = import.meta.env.VITE_REMOTE_JSON_URL || "";
-        const REMOTE_M3U_URL = import.meta.env.VITE_REMOTE_M3U_URL || "";
+        const CACHE_KEY = 'sportify_streams_cache';
+        const CACHE_TIME = 15 * 60 * 1000; // 15 minutes
+        
+        const cachedStr = localStorage.getItem(CACHE_KEY);
+        if (cachedStr) {
+          try {
+            const cached = JSON.parse(cachedStr);
+            if (Date.now() - cached.timestamp < CACHE_TIME) {
+              if (mounted) {
+                setStreams(prev => {
+                  const customStreams = prev.filter(s => s.id.startsWith('custom_'));
+                  const newMap = new Map();
+                  cached.streams.forEach(s => newMap.set(s.id, s));
+                  customStreams.forEach(s => newMap.set(s.id, s));
+                  return Array.from(newMap.values());
+                });
+                setLoading(false);
+              }
+              return;
+            }
+          } catch (e) {
+            // ignore JSON parse error
+          }
+        }
 
-        let jsonRes, m3uRes;
+        const REMOTE_M3U_URL = import.meta.env.VITE_REMOTE_M3U_URL || "";
+        const FANCODE_JSON_URL = import.meta.env.VITE_FANCODE_JSON_URL || "";
+
+        let m3uRes, fancodeRes;
         
         try {
           const fetchOpts = { headers: { "x-api-key": import.meta.env.VITE_API_KEY || "" }, cache: 'no-store' };
-          const t = Date.now();
-          [jsonRes, m3uRes] = await Promise.allSettled([
-            fetch(`${REMOTE_JSON_URL}?t=${t}`, fetchOpts).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-            fetch(`${REMOTE_M3U_URL}?t=${t}`, fetchOpts).then(r => { if (!r.ok) throw new Error(); return r.text(); })
-          ]);
+          
+          const fetchPromises = [
+            fetch(REMOTE_M3U_URL, fetchOpts).then(r => { if (!r.ok) throw new Error(); return r.text(); })
+          ];
+          
+          if (FANCODE_JSON_URL) {
+            fetchPromises.push(
+              fetch(FANCODE_JSON_URL, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+            );
+          }
+
+          const results = await Promise.allSettled(fetchPromises);
+          m3uRes = results[0];
+          if (FANCODE_JSON_URL) {
+            fancodeRes = results[1];
+          }
         } catch (e) {
           // Ignore fetch failure
         }
 
         const allStreams = [];
 
-        if (jsonRes.status === 'fulfilled') {
-          const data = jsonRes.value;
-          for (const [key, item] of Object.entries(data)) {
-            allStreams.push({
-              id: `json_${key}`,
-              name: key.toUpperCase(),
-              url: item.url,
-              clearKeys: item.clearKeys || null,
-              source: 'json',
-              logo: null
-            });
-          }
-        }
 
         if (m3uRes.status === 'fulfilled') {
           const m3uTextData = m3uRes.value;
@@ -79,6 +101,9 @@ export function useStreams() {
                 const langMatch = line.match(/tvg-language="([^"]+)"/i);
                 const language = langMatch ? langMatch[1] : null;
 
+                const vpnMatch = line.match(/tvg-vpn="([^"]+)"/i);
+                const vpn = vpnMatch ? vpnMatch[1] : null;
+
                 let source = 'm3u';
                 if (line.includes('sportify-source="live"')) {
                   source = 'live';
@@ -89,6 +114,7 @@ export function useStreams() {
                   name: name,
                   logo: logo,
                   language: language,
+                  vpn: vpn,
                   source: source,
                   category: categoryName,
                   clearKeys: null,
@@ -113,8 +139,31 @@ export function useStreams() {
                   
                   if (groupedStreams.has(groupKey)) {
                     const existing = groupedStreams.get(groupKey);
-                    existing.backupUrls.push({ url: currentStream.url, clearKeys: currentStream.clearKeys });
+                    
+                    const newLang = currentStream.language ? currentStream.language.toUpperCase() : 'UNKNOWN';
+                    
+                    if (!existing.languageUrls) existing.languageUrls = {};
+                    
+                    // If existing stream had a valid language but languageUrls wasn't populated yet
+                    if (existing.language && existing.language !== 'UNKNOWN' && existing.language !== 'multi' && Object.keys(existing.languageUrls).length === 0) {
+                      existing.languageUrls[existing.language] = existing.url;
+                    }
+
+                    // If incoming stream has a different valid language, add to language options
+                    if (newLang !== 'UNKNOWN' && existing.language !== 'UNKNOWN' && newLang !== existing.language && !existing.languageUrls[newLang]) {
+                       existing.languageUrls[newLang] = currentStream.url;
+                       existing.language = 'multi';
+                    } else {
+                       existing.backupUrls.push({ url: currentStream.url, clearKeys: currentStream.clearKeys });
+                    }
                   } else {
+                    currentStream.languageUrls = {};
+                    if (currentStream.language && currentStream.language.toUpperCase() !== 'UNKNOWN') {
+                       currentStream.language = currentStream.language.toUpperCase();
+                       currentStream.languageUrls[currentStream.language] = currentStream.url;
+                    } else {
+                       currentStream.language = 'UNKNOWN';
+                    }
                     groupedStreams.set(groupKey, currentStream);
                     allStreams.push(currentStream);
                   }
@@ -126,10 +175,77 @@ export function useStreams() {
           }
         }
 
+        if (fancodeRes && fancodeRes.status === 'fulfilled' && fancodeRes.value && fancodeRes.value.matches) {
+          const groupedMatches = new Map();
+          
+          fancodeRes.value.matches.forEach((match, index) => {
+            let streamUrl = "";
+            if (match.streams) {
+              if (match.streams.backup) {
+                streamUrl = match.streams.backup.fancode_cdn_v1 || match.streams.backup.fancode_cdn || "";
+              }
+              if (!streamUrl) {
+                streamUrl = match.streams.primary || match.streams.fancode_cdn || "";
+              }
+            }
+            if (streamUrl) {
+              let mappedCat = match.category ? match.category.toLowerCase() : 'fancode';
+              if (mappedCat === 'formula 1') mappedCat = 'f1';
+              
+              const matchId = match.match_id || index;
+              const lang = match.language ? match.language.toUpperCase() : 'UNKNOWN';
+              
+              if (groupedMatches.has(matchId)) {
+                const existing = groupedMatches.get(matchId);
+                existing.languageUrls[lang] = streamUrl;
+              } else {
+                groupedMatches.set(matchId, {
+                  id: `fancode_${matchId}`,
+                  name: `${match.title} | ${match.tournament}`,
+                  url: streamUrl, // default url
+                  source: 'live',
+                  category: mappedCat,
+                  logo: match.image || null,
+                  clearKeys: null,
+                  backupUrls: [],
+                  languageUrls: { [lang]: streamUrl }
+                });
+              }
+            }
+          });
+          
+          const newFancodeStreams = Array.from(groupedMatches.values()).map(stream => {
+            if (Object.keys(stream.languageUrls).length > 1) {
+              stream.language = 'multi';
+            } else {
+              stream.language = Object.keys(stream.languageUrls)[0] || 'ENGLISH';
+            }
+            return stream;
+          });
+          
+          allStreams.unshift(...newFancodeStreams);
+        }
+
         if (mounted) {
+          // Cache the final array
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+              timestamp: Date.now(),
+              streams: allStreams
+            }));
+          } catch (e) {}
+
           setStreams(prev => {
-            const customStreams = prev.filter(s => s.id.startsWith('custom_') || s.id.startsWith('fancode_'));
-            return [...allStreams, ...customStreams];
+            // Fancode streams are now included in allStreams natively, 
+            // so we only need to preserve 'custom_' streams from state.
+            const customStreams = prev.filter(s => s.id.startsWith('custom_'));
+            
+            // Ensure no duplicates just in case
+            const newStreamMap = new Map();
+            allStreams.forEach(s => newStreamMap.set(s.id, s));
+            customStreams.forEach(s => newStreamMap.set(s.id, s));
+            
+            return Array.from(newStreamMap.values());
           });
           setLoading(false);
         }
@@ -146,7 +262,7 @@ export function useStreams() {
 
     const intervalId = setInterval(() => {
       if (mounted) fetchStreams();
-    }, 15000); // Auto-sync every 15 seconds
+    }, 15 * 60 * 1000); // Auto-sync every 15 minutes instead of 15 seconds
 
     return () => {
       mounted = false;
@@ -155,6 +271,7 @@ export function useStreams() {
   }, []);
 
   const refetch = async () => {
+    localStorage.removeItem('sportify_streams_cache');
     window.location.reload();
   };
 

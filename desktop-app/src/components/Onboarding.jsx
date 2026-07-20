@@ -198,6 +198,15 @@ export default function Onboarding({ onComplete }) {
               </div>
 
               <div className="auth-form">
+                {authMode === 'signup' && (
+                  <input 
+                    type="text" 
+                    placeholder="Nickname" 
+                    className="auth-input" 
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                  />
+                )}
                 <input 
                   type="text" 
                   placeholder="Username" 
@@ -213,25 +222,15 @@ export default function Onboarding({ onComplete }) {
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 {authMode === 'signup' && (
-                  <>
-                    <input 
-                      type="text" 
-                      placeholder="Nickname" 
-                      className="auth-input" 
-                      value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
-                    />
-                    <select 
-                      className="auth-input" 
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value)}
-                      style={{ background: 'rgba(0,0,0,0.3)', color: 'white' }}
-                    >
-                      <option value="Male" style={{ background: '#1e1e24' }}>Male</option>
-                      <option value="Female" style={{ background: '#1e1e24' }}>Female</option>
-                      <option value="Other" style={{ background: '#1e1e24' }}>Other</option>
-                    </select>
-                  </>
+                  <select 
+                    className="auth-input" 
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    style={{ background: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  >
+                    <option value="Male" style={{ background: '#1e1e24' }}>Male</option>
+                    <option value="Female" style={{ background: '#1e1e24' }}>Female</option>
+                  </select>
                 )}
 
                 {errorMsg && <div className="auth-error">{errorMsg}</div>}

@@ -40,6 +40,9 @@ export default function StreamGrid({ streams, onPlay, favorites = [], toggleFavo
               {stream.backupUrls && stream.backupUrls.length > 0 && (
                 <span className="badge type-backup">+{stream.backupUrls.length}</span>
               )}
+              {stream.vpn && (
+                <span className="badge type-vpn" style={{backgroundColor: '#ff4c4c', color: 'white'}}>{stream.vpn.toUpperCase()}</span>
+              )}
               {stream.clearKeys && <span className="badge drm">DRM Protected</span>}
             </div>
           </div>

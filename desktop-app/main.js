@@ -62,7 +62,10 @@ ipcMain.on('start-update', () => {
   autoUpdater.downloadUpdate();
 });
 
+let isManualUpdateCheck = false;
+
 ipcMain.on('check-update', () => {
+  isManualUpdateCheck = true;
   const { autoUpdater } = require('electron-updater');
   autoUpdater.checkForUpdatesAndNotify().catch(err => {
     console.error("Error checking for updates:", err.message);
@@ -85,6 +88,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
+    show: false, // Wait until ready to show to prevent focus bugs
     title: "Sportify Premium Dashboard",
     icon: path.join(__dirname, 'src', 'assets', 'logo.png'),
     webPreferences: {
@@ -104,8 +108,15 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, 'dist-react', 'index.html'));
   }
 
-  // Maximize the window
-  mainWindow.maximize();
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.setAlwaysOnTop(true); // Force window to front
+    mainWindow.maximize();
+    mainWindow.setAlwaysOnTop(false);
+    app.focus();
+    mainWindow.focus();
+    mainWindow.webContents.focus(); // Force input focus on UI
+  });
   
   // Anti-Bypass / Security Measures
   mainWindow.setMenu(null); // Completely remove the top menu bar
@@ -176,14 +187,19 @@ app.whenReady().then(() => {
   autoUpdater.autoDownload = false;
 
   autoUpdater.on('update-available', (info) => {
+    isManualUpdateCheck = false;
     if (mainWindow) mainWindow.webContents.send('update-available', info);
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    if (mainWindow) mainWindow.webContents.send('update-not-available', info);
+    if (isManualUpdateCheck) {
+      if (mainWindow) mainWindow.webContents.send('update-not-available', info);
+      isManualUpdateCheck = false;
+    }
   });
 
   autoUpdater.on('error', (err) => {
+    isManualUpdateCheck = false;
     if (mainWindow) mainWindow.webContents.send('update-error', err.message);
   });
 

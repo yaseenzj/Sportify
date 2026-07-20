@@ -39,273 +39,239 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
 
     async function initPlayer() {
       if (isCancelled) return;
-      await teardownPlayer();
-      if (isCancelled) return;
-
-      const video = videoRef.current;
-      const container = videoContainerRef.current;
       
-      const isM3u8 = stream.url.includes('.m3u8');
-      
-      // 1. Use Hls.js for m3u8 streams without DRM (matches AuthoIPTV)
-      if (isM3u8 && !stream.clearKeys && window.Hls && window.Hls.isSupported()) {
-        console.log("Using hls.js for optimal HLS playback");
-        video.controls = true; // Use native controls for hls.js
-        
-        const hls = new window.Hls({
-          maxLoadingDelay: 4,
-          minAutoBitrate: 0,
-          lowLatencyMode: false,
-          maxBufferLength: 30,
-          maxMaxBufferLength: 60,
-          backBufferLength: 30
-        });
-        playerRef.current = hls; // Store in same ref for cleanup
-        
-        // Custom headers for hls.js
-        if (stream.headers) {
-          hls.config.xhrSetup = function(xhr, url) {
-            for (const [key, value] of Object.entries(stream.headers)) {
-              xhr.setRequestHeader(key, value);
-            }
-          };
-        }
-
-        let recoveryAttempts = 0;
-        hls.on(window.Hls.Events.ERROR, (event, data) => {
-          console.error("Hls.js error:", data);
-          if (data.fatal) {
-            switch (data.type) {
-              case window.Hls.ErrorTypes.NETWORK_ERROR:
-                if (recoveryAttempts < 5) {
-                  recoveryAttempts++;
-                  hls.startLoad();
-                } else {
-                  if (showToast) showToast("Connection lost. Stream offline.");
-                  setActiveSourceInfo("Stream Offline");
-                }
-                break;
-              case window.Hls.ErrorTypes.MEDIA_ERROR:
-                if (recoveryAttempts < 5) {
-                  recoveryAttempts++;
-                  hls.recoverMediaError();
-                } else {
-                  if (showToast) showToast("Codec error. Failed to play stream.");
-                  setActiveSourceInfo("Playback Error");
-                }
-                break;
-              default:
-                hls.destroy();
-                if (showToast) showToast("Fatal playback error occurred.");
-                setActiveSourceInfo("Fatal Error");
-                break;
-            }
-          }
-        });
-
-        const allUrlsToTry = [
-          { url: stream.url },
-          ...(stream.backupUrls || [])
-        ];
-        
-        let success = false;
-        
-        for (const attempt of allUrlsToTry) {
-           if (!isCancelled && attempt === allUrlsToTry[0]) {
-             setActiveSourceInfo('Connecting to Primary Source...');
-           } else if (!isCancelled) {
-             const backupIndex = allUrlsToTry.indexOf(attempt);
-             setActiveSourceInfo(`Connecting to Backup Source ${backupIndex}...`);
-           }
-           
-           try {
-             if (window.electronAPI) {
-               window.electronAPI.setActiveStream(attempt.url, stream.headers || null);
-             }
-             recoveryAttempts = 0;
-
-             await new Promise((resolve, reject) => {
-               hls.loadSource(attempt.url);
-               hls.attachMedia(video);
-               
-               let hasResolved = false;
-               
-               hls.once(window.Hls.Events.MANIFEST_PARSED, (event, data) => {
-                 if (!hasResolved) { 
-                   hasResolved = true; 
-                   if (!isCancelled) {
-                     setHlsLevels(hls.levels || []);
-                     setCurrentLevel(hls.currentLevel);
-                   }
-                   resolve(); 
-                 }
-               });
-               
-               hls.on(window.Hls.Events.LEVEL_SWITCHED, (event, data) => {
-                 if (!isCancelled) setCurrentLevel(data.level);
-               });
-               
-               hls.once(window.Hls.Events.ERROR, (event, data) => {
-                 if (data.fatal && !hasResolved) {
-                   hasResolved = true;
-                   reject(data);
-                 }
-               });
-             });
-             
-             success = true;
-             if (!isCancelled) {
-               if (attempt === allUrlsToTry[0]) {
-                 setActiveSourceInfo('Playing: Primary Source');
-               } else {
-                 const backupIndex = allUrlsToTry.indexOf(attempt);
-                 setActiveSourceInfo(`Playing: Backup Source ${backupIndex}`);
-               }
-               video.muted = false;
-               video.volume = 1;
-               video.play().catch(e => console.error("Play failed", e));
-             }
-             break;
-           } catch (e) {
-             console.error("HLS attempt failed", attempt.url, e);
-           }
-        }
-        
-        if (!success) {
-          if (showToast) showToast('Failed to load the stream and all backups.');
-          if (!isCancelled) setActiveSourceInfo('All sources offline');
-        }
-        return;
-      }
-      
-      // 2. Fallback to Shaka Player for DASH / DRM streams
-      console.log("Using Shaka Player");
-      video.controls = false;
-      
-      if (!window.shaka || !window.shaka.Player) {
-        console.error('Shaka Player not loaded');
-        return;
-      }
-      window.shaka.polyfill.installAll();
-      if (!window.shaka.Player.isBrowserSupported()) {
-        console.error('Browser not supported for Shaka Player');
-        return;
-      }
-
-      const player = new window.shaka.Player(video);
-      playerRef.current = player;
-      
-      const ui = new window.shaka.ui.Overlay(player, container, video);
-      uiRef.current = ui;
-
-      const uiConfig = {
-        addSeekBar: true,
-        controlPanelElements: [
-          "play_pause", "rewind", "fast_forward", "mute", "volume", "spacer", "time_and_duration", "quality", "fullscreen", "overflow_menu"
-        ],
-        overflowMenuButtons: ["quality", "language", "playback_rate"]
-      };
-      ui.configure(uiConfig);
-
-      const defaultQuality = getStorage('sportify_default_quality') || 'auto';
-      let maxHeight = 1080;
-      if (defaultQuality !== 'auto') {
-        maxHeight = parseInt(defaultQuality, 10);
-      }
-
-      const playerConfig = {
-        abr: {
-          enabled: true,
-          restrictToElementSize: false,
-          restrictToScreenSize: false,
-          restrictions: { maxHeight: maxHeight }
-        },
-        streaming: {
-          retryParameters: { maxAttempts: 2, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 10000 },
-          bufferingGoal: 30, rebufferingGoal: 2, bufferBehind: 30, jumpLargeGaps: true, stallEnabled: true,
-          alwaysStreamText: false, lowLatencyMode: false, inaccurateManifestTolerance: 0.2
-        },
-        manifest: {
-          retryParameters: { maxAttempts: 2, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 10000 },
-          disableVideo: false, disableAudio: false,
-          hls: {
-            ignoreTextStreamFailures: true, ignoreImageStreamFailures: true,
-            defaultAudioCodec: 'mp4a.40.2', defaultVideoCodec: 'avc1.42E01E', useFullSegmentsForStartTime: true
-          }
-        }
-      };
-      player.configure(playerConfig);
-
-      player.getNetworkingEngine().clearAllRequestFilters();
-      player.getNetworkingEngine().registerRequestFilter((type, request) => {
-        if (stream.headers) {
-          for (const [key, value] of Object.entries(stream.headers)) {
-            request.headers[key] = value;
-          }
-        }
-      });
-
-      player.addEventListener('error', async (event) => {
-        if (event.detail && event.detail.severity === 2) { 
-          if (player.retryStreaming && player.retryStreaming()) {
-            console.log('Successfully retried streaming seamlessly');
-          }
-        }
-      });
-
       const allUrlsToTry = [ { url: stream.url, clearKeys: stream.clearKeys }, ...(stream.backupUrls || []) ];
       let success = false;
-      for (const attempt of allUrlsToTry) {
+      
+      for (let i = 0; i < allUrlsToTry.length; i++) {
         if (isCancelled) break;
-        try {
-          if (!isCancelled && attempt === allUrlsToTry[0]) setActiveSourceInfo('Connecting to Primary Source...');
-          else if (!isCancelled) setActiveSourceInfo(`Connecting to Backup Source ${allUrlsToTry.indexOf(attempt)}...`);
+        
+        await teardownPlayer();
+        if (isCancelled) break;
 
-          if (window.electronAPI) {
-            window.electronAPI.setActiveStream(attempt.url, stream.headers || null);
-          }
+        const attempt = allUrlsToTry[i];
+        const video = videoRef.current;
+        const container = videoContainerRef.current;
+        
+        if (i === 0) setActiveSourceInfo('Connecting to Primary Source...');
+        else setActiveSourceInfo(`Connecting to Backup Source ${i}...`);
 
-          let drmConfig = {};
-          if (attempt.clearKeys && Object.keys(attempt.clearKeys).length > 0) {
-            drmConfig.clearKeys = attempt.clearKeys;
-          }
-          player.configure({ drm: drmConfig });
-          
-          let mimeType = undefined;
-          if (attempt.url.includes('.m3u8')) {
-            mimeType = 'application/x-mpegURL';
-          } else if (attempt.url.includes('.mpd') || !attempt.url.includes('.m3u8')) {
-            // Default to DASH if not specifically m3u8 to handle tokenized/hidden URLs
-            mimeType = 'application/dash+xml';
-          }
-          
-          await player.load(attempt.url, undefined, mimeType);
-          if (isCancelled) break;
-          success = true;
-          
-          if (!isCancelled) {
-            if (attempt === allUrlsToTry[0]) setActiveSourceInfo('Playing: Primary Source');
-            else setActiveSourceInfo(`Playing: Backup Source ${allUrlsToTry.indexOf(attempt)}`);
-          }
-          break;
-        } catch (e) {
-          if (isCancelled) break;
-          console.error('Failed to load stream attempt:', attempt.url, e);
-          try { await player.unload(); } catch (err) {}
+        if (window.electronAPI) {
+          window.electronAPI.setActiveStream(attempt.url, stream.headers || null);
         }
-      }
 
-      if (isCancelled) return;
+        const isAttemptMpd = attempt.url.includes('.mpd');
+        const hasDrm = attempt.clearKeys && Object.keys(attempt.clearKeys).length > 0;
+        const useHlsJs = !isAttemptMpd && !hasDrm && window.Hls && window.Hls.isSupported();
 
-      if (success) {
-        if (!isCancelled) {
+        try {
+          if (useHlsJs) {
+            console.log("Using hls.js for attempt:", attempt.url);
+            video.controls = true;
+            
+            await new Promise((resolve, reject) => {
+              const hls = new window.Hls({
+                maxLoadingDelay: 4,
+                minAutoBitrate: 0,
+                lowLatencyMode: false,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                backBufferLength: 30
+              });
+              
+              playerRef.current = hls;
+              
+              if (stream.headers) {
+                hls.config.xhrSetup = function(xhr, url) {
+                  for (const [key, value] of Object.entries(stream.headers)) {
+                    xhr.setRequestHeader(key, value);
+                  }
+                };
+              }
+
+              let hasResolved = false;
+              let recoveryAttempts = 0;
+              
+              const errorHandler = (event, data) => {
+                if (data.fatal) {
+                  switch (data.type) {
+                    case window.Hls.ErrorTypes.NETWORK_ERROR:
+                      if (!hasResolved) {
+                        hasResolved = true;
+                        hls.destroy();
+                        reject(new Error("Network error during load"));
+                        return;
+                      }
+                      if (recoveryAttempts < 5) {
+                        recoveryAttempts++;
+                        hls.startLoad();
+                      } else {
+                        if (showToast) showToast("Connection lost. Stream offline.");
+                        setActiveSourceInfo("Stream Offline");
+                      }
+                      break;
+                    case window.Hls.ErrorTypes.MEDIA_ERROR:
+                      if (recoveryAttempts < 5) {
+                        recoveryAttempts++;
+                        hls.recoverMediaError();
+                      } else {
+                        if (!hasResolved) {
+                          hasResolved = true;
+                          hls.destroy();
+                          reject(new Error("Media error during load"));
+                          return;
+                        }
+                        if (showToast) showToast("Codec error. Failed to play stream.");
+                        setActiveSourceInfo("Playback Error");
+                      }
+                      break;
+                    default:
+                      if (!hasResolved) {
+                        hasResolved = true;
+                        hls.destroy();
+                        reject(new Error("Fatal error during load"));
+                        return;
+                      }
+                      hls.destroy();
+                      if (showToast) showToast("Fatal playback error occurred.");
+                      setActiveSourceInfo("Fatal Error");
+                      break;
+                  }
+                }
+              };
+
+              hls.on(window.Hls.Events.ERROR, errorHandler);
+
+              hls.once(window.Hls.Events.MANIFEST_PARSED, (event, data) => {
+                if (!hasResolved) { 
+                  hasResolved = true; 
+                  if (!isCancelled) {
+                    setHlsLevels(hls.levels || []);
+                    setCurrentLevel(hls.currentLevel);
+                  }
+                  resolve(hls); 
+                }
+              });
+              
+              hls.on(window.Hls.Events.LEVEL_SWITCHED, (event, data) => {
+                if (!isCancelled) setCurrentLevel(data.level);
+              });
+              
+              hls.loadSource(attempt.url);
+              hls.attachMedia(video);
+            });
+            
+          } else {
+            console.log("Using Shaka Player for attempt:", attempt.url);
+            video.controls = false;
+            
+            if (!window.shaka || !window.shaka.Player) {
+              throw new Error('Shaka Player not loaded');
+            }
+            window.shaka.polyfill.installAll();
+            if (!window.shaka.Player.isBrowserSupported()) {
+              throw new Error('Browser not supported for Shaka Player');
+            }
+
+            const player = new window.shaka.Player(video);
+            playerRef.current = player;
+            
+            const ui = new window.shaka.ui.Overlay(player, container, video);
+            uiRef.current = ui;
+
+            const uiConfig = {
+              addSeekBar: true,
+              controlPanelElements: [
+                "play_pause", "rewind", "fast_forward", "mute", "volume", "spacer", "time_and_duration", "quality", "fullscreen", "overflow_menu"
+              ],
+              overflowMenuButtons: ["quality", "language", "playback_rate"]
+            };
+            ui.configure(uiConfig);
+
+            const defaultQuality = getStorage('sportify_default_quality') || 'auto';
+            let maxHeight = 1080;
+            if (defaultQuality !== 'auto') {
+              maxHeight = parseInt(defaultQuality, 10);
+            }
+
+            const playerConfig = {
+              abr: {
+                enabled: true,
+                restrictToElementSize: false,
+                restrictToScreenSize: false,
+                restrictions: { maxHeight: maxHeight }
+              },
+              streaming: {
+                retryParameters: { maxAttempts: 2, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 10000 },
+                bufferingGoal: 30, rebufferingGoal: 2, bufferBehind: 30, jumpLargeGaps: true, stallEnabled: true,
+                alwaysStreamText: false, lowLatencyMode: false, inaccurateManifestTolerance: 0.2
+              },
+              manifest: {
+                retryParameters: { maxAttempts: 2, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 10000 },
+                disableVideo: false, disableAudio: false,
+                hls: {
+                  ignoreTextStreamFailures: true, ignoreImageStreamFailures: true,
+                  defaultAudioCodec: 'mp4a.40.2', defaultVideoCodec: 'avc1.42E01E', useFullSegmentsForStartTime: true
+                }
+              }
+            };
+            player.configure(playerConfig);
+
+            player.getNetworkingEngine().clearAllRequestFilters();
+            player.getNetworkingEngine().registerRequestFilter((type, request) => {
+              if (stream.headers) {
+                for (const [key, value] of Object.entries(stream.headers)) {
+                  request.headers[key] = value;
+                }
+              }
+            });
+
+            player.addEventListener('error', (event) => {
+              if (event.detail && event.detail.severity === 2) { 
+                if (player.retryStreaming && player.retryStreaming()) {
+                  console.log('Successfully retried streaming seamlessly');
+                }
+              }
+            });
+
+            let drmConfig = {};
+            if (hasDrm) {
+              drmConfig.clearKeys = attempt.clearKeys;
+            }
+            player.configure({ drm: drmConfig });
+            
+            let mimeType = undefined;
+            if (attempt.url.includes('.m3u8')) {
+              mimeType = 'application/x-mpegURL';
+            } else if (attempt.url.includes('.mpd')) {
+              mimeType = 'application/dash+xml';
+            }
+            
+            await player.load(attempt.url, undefined, mimeType);
+          }
+          
+          if (isCancelled) break;
+          
+          success = true;
+          if (i === 0) setActiveSourceInfo('Playing: Main Source');
+          else setActiveSourceInfo(`Playing: Backup Source ${i}`);
+          
           video.muted = false;
           video.volume = 1;
           video.play().catch(e => console.error("Play failed", e));
+          
+          break; // Successfully loaded, exit loop
+        } catch (e) {
+          console.error(`Attempt ${i} failed for URL: ${attempt.url}`, e);
+          // Loop will continue, teardownPlayer() at start of next iteration will clean up
         }
-      } else {
-        if (showToast) showToast('Failed to load the stream and all backups. It may be offline.');
-        if (!isCancelled) setActiveSourceInfo('All sources offline');
+      }
+
+      if (isCancelled) return;
+
+      if (!success) {
+        if (showToast) showToast('Failed to load all streams, try using VPN');
+        setActiveSourceInfo('All sources offline');
       }
     }
 

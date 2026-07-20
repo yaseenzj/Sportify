@@ -25,195 +25,11 @@ export default {
 
     if (url.pathname === '/api/streams/m3u') {
       try {
-        let parsed = { all: "", football: "", cricket: "", f1: "", motogp: "", golf: "", tennis: "" };
-        const fancodeOnly = url.searchParams.get('fancodeOnly') === 'true';
+        let parsed = { all: "", football: "", cricket: "", basketball: "", f1: "", motogp: "", tennis: "", golf: "" };
         
-        if (env.SPORTIFY_STREAMS && !fancodeOnly) {
+        if (env.SPORTIFY_STREAMS) {
           const data = await env.SPORTIFY_STREAMS.get("streams_data");
           if (data) parsed = { ...parsed, ...JSON.parse(data) };
-        }
-
-        const isAdmin = url.searchParams.get('admin') === 'true';
-
-        if (!isAdmin || fancodeOnly) {
-          try {
-            const extRes = await fetch(env.FANCODE_JSON_URL);
-            if (extRes.ok) {
-              const extJson = await extRes.json();
-              const matches = extJson.matches || [];
-              let injected = { all: "", football: "", cricket: "", f1: "", motogp: "", golf: "", tennis: "" };
-              
-              for (let i = 0; i < matches.length; i++) {
-                const match = matches[i];
-                if (match.status && match.status !== 'LIVE' && match.status !== 'UPCOMING') continue;
-                
-                let streamUrl = "";
-                if (match.streams) {
-                  if (match.status === 'LIVE' && match.streams.backup) {
-                    streamUrl = match.streams.backup.fancode_cdn_v1 || match.streams.backup.fancode_cdn || "";
-                  } else if (match.status === 'UPCOMING') {
-                    streamUrl = match.streams.primary || match.streams.fancode_cdn || "";
-                  }
-                  
-                  if (!streamUrl) {
-                    streamUrl = match.streams.primary || match.streams.fancode_cdn || (match.streams.backup ? (match.streams.backup.fancode_cdn_v1 || match.streams.backup.fancode_cdn) : "");
-                  }
-                }
-                if (!streamUrl) continue;
-                
-                let title = match.title || "";
-                const catLower = (match.category || "").toLowerCase();
-                const isNonTeamSport = catLower.includes('motorsport') || catLower.includes('formula') || catLower.includes('f1') || catLower.includes('golf') || catLower.includes('motogp');
-                
-                if (title.toLowerCase().includes('f1 kids')) {
-                  title = 'Race';
-                  match.tournament = match.tournament.replace(/f1 kids \d+/i, '').trim();
-                  if (!match.tournament || match.tournament === "") {
-                    match.tournament = "F1 PIRELLI BRITISH GRAND PRIX 2026";
-                  }
-                  
-                  let mainImage = match.image;
-                  for (const m of matches) {
-                    if ((m.category||"").toLowerCase().includes("f1") && (m.title||"").toLowerCase() === "race" && !(m.tournament||"").toLowerCase().includes("kids")) {
-                      mainImage = m.image;
-                      break;
-                    }
-                  }
-                  match.image = mainImage;
-                }
-
-                if (isNonTeamSport) {
-                   title = title.replace(/\s*[-]?\s*Main Feed/gi, '').trim();
-                }
-                
-                // Collect active match names to filter the backup M3U
-                const activeMatchName = `${title} | ${match.tournament}`.toLowerCase();
-                if (!globalThis.activeMatches) globalThis.activeMatches = new Set();
-                globalThis.activeMatches.add(activeMatchName);
-                
-                // Removed language tag so duplicates group together
-                const inf = `#EXTINF:-1 tvg-logo="${match.image || ''}" group-title="${match.category || ''}" sportify-source="live",${title} | ${match.tournament}`;
-                const combined = inf + "\n" + streamUrl + "\n";
-                
-                if (catLower.includes('motorsport') || catLower.includes('formula') || catLower.includes('f1')) {
-                  injected.f1 += combined + "\n";
-                } else if (catLower.includes('cricket')) {
-                  injected.cricket += combined + "\n";
-                } else if (catLower.includes('football') || catLower.includes('soccer')) {
-                  injected.football += combined + "\n";
-                } else if (catLower.includes('motogp')) {
-                  injected.motogp += combined + "\n";
-                } else if (catLower.includes('golf')) {
-                  injected.golf += combined + "\n";
-                } else if (catLower.includes('tennis')) {
-                  injected.tennis += combined + "\n";
-                } else {
-                  injected.all += combined + "\n";
-                }
-              }
-              
-              for (const key in injected) {
-                if (injected[key]) {
-                  parsed[key] = injected[key] + (parsed[key] || "");
-                }
-              }
-            }
-          } catch (e) {
-            console.error("External JSON fetch failed", e);
-          }
-          
-          try {
-            const backupM3uRes = await fetch(env.FANCODE_M3U_URL);
-            if (backupM3uRes.ok) {
-              const m3uText = await backupM3uRes.text();
-              const lines = m3uText.split('\n');
-              let currentInf = "";
-              let currentKodiProps = [];
-              for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (line.startsWith('#EXTINF:')) {
-                   currentInf = line;
-                   currentKodiProps = [];
-                   
-                   const lastQuoteIdx = currentInf.lastIndexOf('"');
-                   let splitCommaIdx = currentInf.indexOf(',', lastQuoteIdx !== -1 ? lastQuoteIdx : 10);
-                   
-                   if (splitCommaIdx !== -1) {
-                     const originalName = currentInf.substring(splitCommaIdx + 1).trim();
-                     
-                     let prefix = currentInf.substring(0, splitCommaIdx).trim();
-                     if (prefix.startsWith('#EXTINF:-1,')) {
-                       prefix = prefix.replace('#EXTINF:-1,', '#EXTINF:-1').trim();
-                     }
-                     
-                     if (!prefix.includes('sportify-source=')) {
-                       prefix = prefix.replace('#EXTINF:-1', '#EXTINF:-1 sportify-source="live"');
-                     }
-                     
-                     let newName = originalName;
-                     const nameMatch = originalName.match(/(.+?)\s*\((.+?)\)$/);
-                     if (nameMatch) {
-                       let title = nameMatch[1];
-                       const tournament = nameMatch[2];
-                       
-                       const catStr = currentInf.toLowerCase();
-                       const isNonTeamSport = catStr.includes('formula') || catStr.includes('f1') || 
-                                              catStr.includes('golf') || catStr.includes('motogp') || 
-                                              catStr.includes('motorsport');
-                                              
-                       if (isNonTeamSport && title.toLowerCase().includes(' vs ')) {
-                         title = title.split(/ vs /i)[0].trim();
-                         if (title.endsWith('-')) title = title.substring(0, title.length - 1).trim();
-                       }
-                       
-                       title = title.replace(/ vs /gi, ' Vs ');
-                       
-                       if (isNonTeamSport) {
-                           title = title.replace(/\s*-\s*Main Feed/gi, '');
-                           title = title.trim();
-                       }
-                       
-                       // Removed language tag so it matches JSON stream names and groups together
-                       newName = `${title} | ${tournament}`;
-                     }
-                     
-                     currentInf = `${prefix},${newName}`;
-                   }
-                } else if (line.startsWith('#KODIPROP:')) {
-                   currentKodiProps.push(line);
-                } else if (line && !line.startsWith('#') && currentInf) {
-                   // Check if this M3U stream belongs to an active match from JSON
-                   const splitCommaIdx = currentInf.lastIndexOf(',');
-                   const parsedName = splitCommaIdx !== -1 ? currentInf.substring(splitCommaIdx + 1).trim() : "";
-                   
-                   if (globalThis.activeMatches && globalThis.activeMatches.has(parsedName.toLowerCase())) {
-                     const propsStr = currentKodiProps.length > 0 ? currentKodiProps.join('\n') + '\n' : '';
-                     const combined = currentInf + "\n" + propsStr + line + "\n";
-                     const catLower = currentInf.toLowerCase();
-                     if (catLower.includes('motorsport') || catLower.includes('formula') || catLower.includes('f1')) {
-                       parsed.f1 = combined + (parsed.f1 || "");
-                     } else if (catLower.includes('cricket')) {
-                       parsed.cricket = combined + (parsed.cricket || "");
-                     } else if (catLower.includes('football') || catLower.includes('soccer')) {
-                       parsed.football = combined + (parsed.football || "");
-                     } else if (catLower.includes('motogp')) {
-                       parsed.motogp = combined + (parsed.motogp || "");
-                     } else if (catLower.includes('golf')) {
-                       parsed.golf = combined + (parsed.golf || "");
-                     } else {
-                       parsed.all = combined + (parsed.all || "");
-                     }
-                   }
-                   currentInf = "";
-                   currentKodiProps = [];
-                }
-              }
-            }
-          } catch (e) {
-            console.error("Backup M3U fetch failed", e);
-          }
-          
-          globalThis.activeMatches = null; // cleanup
         }
 
         return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -273,6 +89,30 @@ export default {
         }
 
         await env.SPORTIFY_STREAMS.put("streams_data", JSON.stringify(body));
+
+        // Push to GitHub Gist if configured
+        if (env.GITHUB_TOKEN && env.GIST_ID) {
+          try {
+            await fetch(`https://api.github.com/gists/${env.GIST_ID}`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `token ${env.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'User-Agent': 'Sportify-Stream-Manager'
+              },
+              body: JSON.stringify({
+                files: {
+                  'streams.json': {
+                    content: JSON.stringify(body)
+                  }
+                }
+              })
+            });
+          } catch (gistErr) {
+            console.error("Failed to push to GitHub Gist:", gistErr);
+          }
+        }
+
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
         return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -434,7 +274,6 @@ export default {
               </div>
               
               <div id="toolbar" style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <button id="view-toggle-btn" onclick="toggleViewMode()" style="width: auto; background: #2563eb;">Show Fancode Links</button>
                 <input type="text" id="search-input" placeholder="Search in this category..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: white; outline: none;" oninput="handleSearch()">
                 <button onclick="exportBackup()" style="width: auto;">Export Backup</button>
                 <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importBackup(event)">
@@ -472,18 +311,17 @@ export default {
           <script>
             let currentPassword = '';
             let currentCategory = 'all';
-            let viewMode = 'manual'; // 'manual' or 'fancode'
-            let streamsData = { all: "", football: "", cricket: "", f1: "", motogp: "", golf: "", tennis: "" };
-            let fancodeData = { all: "", football: "", cricket: "", f1: "", motogp: "", golf: "", tennis: "" };
+            let streamsData = { all: "", football: "", cricket: "", basketball: "", f1: "", motogp: "", tennis: "", golf: "" };
             
             const categories = [
               { id: 'all', name: 'All Channels' },
               { id: 'football', name: 'Football' },
               { id: 'cricket', name: 'Cricket' },
+              { id: 'basketball', name: 'Basketball' },
               { id: 'f1', name: 'F1' },
               { id: 'motogp', name: 'MotoGP' },
-              { id: 'golf', name: 'Golf' },
               { id: 'tennis', name: 'Tennis' },
+              { id: 'golf', name: 'Golf' },
               { id: 'reports', name: 'Reports ⚠️' }
             ];
 
@@ -494,10 +332,8 @@ export default {
 
             const editor = document.getElementById('editor');
             editor.addEventListener('input', (e) => {
-              if (viewMode === 'manual') {
-                streamsData[currentCategory] = e.target.value;
-                document.getElementById('status-msg').textContent = 'Unsaved changes...';
-              }
+              streamsData[currentCategory] = e.target.value;
+              document.getElementById('status-msg').textContent = 'Unsaved changes...';
             });
 
             async function login() {
@@ -514,10 +350,6 @@ export default {
                   const res = await fetch('/api/streams/m3u?admin=true');
                   const data = await res.json();
                   streamsData = { ...streamsData, ...data };
-                  
-                  const fcRes = await fetch('/api/streams/m3u?fancodeOnly=true');
-                  const fcData = await fcRes.json();
-                  fancodeData = { ...fancodeData, ...fcData };
                   
                   document.getElementById('login-screen').style.display = 'none';
                   document.getElementById('dashboard').style.display = 'block';
@@ -545,24 +377,7 @@ export default {
               });
             }
 
-            function toggleViewMode() {
-              viewMode = viewMode === 'manual' ? 'fancode' : 'manual';
-              const btn = document.getElementById('view-toggle-btn');
-              if (viewMode === 'fancode') {
-                btn.textContent = 'Show Manual Links';
-                btn.style.background = '#059669';
-                editor.readOnly = true;
-                document.getElementById('save-btn').disabled = true;
-                document.getElementById('save-btn').style.opacity = '0.5';
-              } else {
-                btn.textContent = 'Show Fancode Links';
-                btn.style.background = '#2563eb';
-                editor.readOnly = false;
-                document.getElementById('save-btn').disabled = false;
-                document.getElementById('save-btn').style.opacity = '1';
-              }
-              switchTab(currentCategory);
-            }
+
 
             function switchTab(id) {
               currentCategory = id;
@@ -580,8 +395,7 @@ export default {
               document.getElementById('toolbar').style.display = 'flex';
               document.getElementById('reports-section').style.display = 'none';
               
-              const dataSource = viewMode === 'fancode' ? fancodeData : streamsData;
-              editor.value = dataSource[id] || "";
+              editor.value = streamsData[id] || "";
               document.getElementById('search-input').value = ""; // clear search
             }
             
