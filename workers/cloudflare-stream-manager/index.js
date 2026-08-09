@@ -20,7 +20,16 @@ export default {
     // PUBLIC API FOR THE DESKTOP APP
     // ----------------------------------------------------
     if (url.pathname === '/api/streams/json') {
-      return new Response(JSON.stringify({}), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      try {
+        let parsed = { broadcastMessage: "" };
+        if (env.SPORTIFY_STREAMS) {
+          const data = await env.SPORTIFY_STREAMS.get("streams_data");
+          if (data) parsed = { ...parsed, ...JSON.parse(data) };
+        }
+        return new Response(JSON.stringify({ broadcastMessage: parsed.broadcastMessage }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (e) {
+        return new Response(JSON.stringify({}), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     if (url.pathname === '/api/streams/m3u') {
@@ -199,6 +208,7 @@ export default {
         <!DOCTYPE html>
         <html lang="en">
         <head>
+          <link rel="icon" type="image/png" href="data:image/png;base64,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">
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Sportify Stream Manager</title>
@@ -239,8 +249,11 @@ export default {
             .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
             
             .editor-container { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; height: 500px; }
-            textarea { flex: 1; background: transparent; border: none; padding: 20px; color: #d4d4d8; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; outline: none; resize: none; }
-            
+            .editor-wrapper { position: relative; flex: 1; display: flex; }
+            .backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 20px; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; color: transparent; pointer-events: none; white-space: pre-wrap; word-wrap: break-word; overflow-y: scroll; z-index: 1; }
+            .backdrop mark { background: rgba(234, 179, 8, 0.6); color: transparent; }
+            #editor { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 2; background: transparent; border: none; padding: 20px; color: #d4d4d8; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; outline: none; resize: none; overflow-y: scroll; }
+
             .actions { display: flex; justify-content: flex-end; margin-top: 24px; gap: 16px; align-items: center; }
             .status { color: var(--text-muted); font-size: 0.9rem; }
             .actions button { width: auto; min-width: 150px; }
@@ -261,8 +274,14 @@ export default {
             </div>
             
             <div id="dashboard" style="display: none;">
-              <h1>Sportify Stream Manager</h1>
-              <p class="subtitle">Paste your M3U playlists into the correct categories below.</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h1 style="margin-bottom: 0;">Sportify Admin Panel</h1>
+                <button onclick="showBroadcastModal()" style="width: auto; background: #eab308; color: #000; display: flex; align-items: center; gap: 8px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                  Set Alerts
+                </button>
+              </div>
+              <p class="subtitle">If you see this you're an Admin lol</p>
               
               <div id="kv-warning" class="kv-warning">
                 <strong>⚠️ Cloudflare KV Not Bound!</strong><br><br>
@@ -274,7 +293,12 @@ export default {
               </div>
               
               <div id="toolbar" style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <input type="text" id="search-input" placeholder="Search in this category..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: white; outline: none;" oninput="handleSearch()">
+                <div style="flex: 1; display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding-right: 8px; overflow: hidden;">
+                  <input type="text" id="search-input" placeholder="Search in this category..." style="flex: 1; padding: 10px; background: transparent; color: white; outline: none; border: none;" oninput="handleSearchInput()" onkeydown="handleSearchKey(event)">
+                  <span id="search-info" style="color: var(--text-muted); font-size: 0.85rem; margin-right: 8px; pointer-events: none;"></span>
+                  <button onclick="nextSearchMatch(-1)" style="width: 24px; height: 24px; padding: 0; background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; min-width: unset; margin-right: 4px;" title="Previous (Shift+Enter)">▲</button>
+                  <button onclick="nextSearchMatch(1)" style="width: 24px; height: 24px; padding: 0; background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; min-width: unset;" title="Next (Enter)">▼</button>
+                </div>
                 <button onclick="exportBackup()" style="width: auto;">Export Backup</button>
                 <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importBackup(event)">
                 <button onclick="document.getElementById('import-file').click()" style="width: auto; background: #3f3f46;">Import Backup</button>
@@ -283,7 +307,10 @@ export default {
               
               <div id="editor-section">
                 <div class="editor-container">
-                  <textarea id="editor" placeholder="Paste #EXTM3U content here..."></textarea>
+                  <div class="editor-wrapper">
+                    <div id="editor-backdrop" class="backdrop"></div>
+                    <textarea id="editor" placeholder="Paste #EXTM3U content here..." onscroll="syncScroll()" oninput="updateBackdrop()"></textarea>
+                  </div>
                 </div>
                 
                 <div class="actions">
@@ -295,6 +322,17 @@ export default {
               <div id="reports-section" style="display: none;">
                 <div id="reports-list" style="display: flex; flex-direction: column; gap: 16px;">
                   <p style="color: var(--text-muted)">Loading reports...</p>
+                </div>
+              </div>
+            </div>
+            
+            <div id="broadcast-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100;">
+              <div style="background: var(--surface); padding: 24px; border-radius: 12px; width: 100%; max-width: 400px; border: 1px solid var(--border);">
+                <h3 style="margin-bottom: 16px;">Set Alerts Message</h3>
+                <textarea id="broadcast-input" placeholder="this will be shown to every user.." rows="4" style="width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border); padding: 12px; border-radius: 8px; color: white; resize: none; margin-bottom: 16px; outline: none;"></textarea>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                  <button onclick="closeBroadcastModal()" style="width: auto; background: #3f3f46;">Cancel</button>
+                  <button onclick="saveBroadcast(event)" style="width: auto; background: #eab308; color: #000;">Send Alert</button>
                 </div>
               </div>
             </div>
@@ -311,18 +349,18 @@ export default {
           <script>
             let currentPassword = '';
             let currentCategory = 'all';
-            let streamsData = { all: "", football: "", cricket: "", basketball: "", f1: "", motogp: "", tennis: "", golf: "" };
+            let streamsData = { all: "", football: "", cricket: "", basketball: "", f1: "", motogp: "", tennis: "", golf: "", broadcastMessage: "" };
             
             const categories = [
+              { id: 'reports', name: 'Reports ⚠️' },
               { id: 'all', name: 'All Channels' },
-              { id: 'football', name: 'Football' },
-              { id: 'cricket', name: 'Cricket' },
               { id: 'basketball', name: 'Basketball' },
               { id: 'f1', name: 'F1' },
+              { id: 'football', name: 'Football' },
               { id: 'motogp', name: 'MotoGP' },
+              { id: 'cricket', name: 'Cricket' },
               { id: 'tennis', name: 'Tennis' },
-              { id: 'golf', name: 'Golf' },
-              { id: 'reports', name: 'Reports ⚠️' }
+              { id: 'golf', name: 'Golf' }
             ];
 
             const passwordInput = document.getElementById('password');
@@ -355,13 +393,31 @@ export default {
                   document.getElementById('dashboard').style.display = 'block';
                   
                   renderTabs();
-                  switchTab('all');
+                  switchTab('reports');
+                  fetchReportsCount();
                 } else {
                   throw new Error('Invalid password');
                 }
               } catch (e) {
                 document.getElementById('login-error').style.display = 'block';
               }
+            }
+
+            async function fetchReportsCount() {
+              try {
+                const res = await fetch('/api/admin/reports', {
+                  headers: { 'Authorization': \`Bearer \${currentPassword}\` }
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  const count = data.reports ? data.reports.length : 0;
+                  const reportsCat = categories.find(c => c.id === 'reports');
+                  if (reportsCat) {
+                    reportsCat.name = \`Reports ⚠️ (\${count})\`;
+                    renderTabs();
+                  }
+                }
+              } catch (e) {}
             }
 
             function renderTabs() {
@@ -397,6 +453,7 @@ export default {
               
               editor.value = streamsData[id] || "";
               document.getElementById('search-input').value = ""; // clear search
+              updateBackdrop();
             }
             
             async function loadReports() {
@@ -441,6 +498,7 @@ export default {
                 });
                 if (res.ok) {
                   loadReports();
+                  fetchReportsCount();
                 } else {
                   alert("Failed to delete report.");
                 }
@@ -449,15 +507,89 @@ export default {
               }
             }
 
-            function handleSearch() {
+            function escapeHTML(str) {
+              return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            function syncScroll() {
+              const editor = document.getElementById('editor');
+              const backdrop = document.getElementById('editor-backdrop');
+              backdrop.scrollTop = editor.scrollTop;
+              backdrop.scrollLeft = editor.scrollLeft;
+            }
+
+            let searchMatches = [];
+            let currentSearchIndex = -1;
+
+            function updateBackdrop() {
               const query = document.getElementById('search-input').value.toLowerCase();
-              if (!query) return;
-              const text = editor.value;
-              const index = text.toLowerCase().indexOf(query);
-              if (index !== -1) {
-                editor.setSelectionRange(index, index + query.length);
+              const text = document.getElementById('editor').value;
+              const backdrop = document.getElementById('editor-backdrop');
+              
+              searchMatches = [];
+              if (!query) {
+                backdrop.innerHTML = escapeHTML(text) + (text.endsWith('\\n') ? '<br/>' : '');
+                document.getElementById('search-info').textContent = '';
+                return;
+              }
+              
+              let html = '';
+              let lastIdx = 0;
+              let lowerText = text.toLowerCase();
+              let idx = lowerText.indexOf(query);
+              
+              let matchIndex = 0;
+              while (idx !== -1) {
+                searchMatches.push(idx);
+                html += escapeHTML(text.substring(lastIdx, idx));
+                // Highlight the active match differently
+                const isCurrent = matchIndex === currentSearchIndex;
+                html += \`<mark style="background: \${isCurrent ? 'rgba(234, 179, 8, 0.9)' : 'rgba(234, 179, 8, 0.5)'};">\${escapeHTML(text.substring(idx, idx + query.length))}</mark>\`;
+                lastIdx = idx + query.length;
+                idx = lowerText.indexOf(query, lastIdx);
+                matchIndex++;
+              }
+              html += escapeHTML(text.substring(lastIdx));
+              if (text.endsWith('\\n')) html += '<br/>';
+              
+              backdrop.innerHTML = html;
+              
+              const info = document.getElementById('search-info');
+              if (searchMatches.length > 0) {
+                info.textContent = \`\${currentSearchIndex + 1} of \${searchMatches.length}\`;
+              } else {
+                info.textContent = '0 matches';
+              }
+            }
+
+            function handleSearchInput() {
+              currentSearchIndex = 0;
+              updateBackdrop();
+              scrollToMatch();
+            }
+
+            function handleSearchKey(event) {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                nextSearchMatch(event.shiftKey ? -1 : 1);
+              }
+            }
+
+            function nextSearchMatch(dir) {
+              if (searchMatches.length === 0) return;
+              currentSearchIndex += dir;
+              if (currentSearchIndex < 0) currentSearchIndex = searchMatches.length - 1;
+              if (currentSearchIndex >= searchMatches.length) currentSearchIndex = 0;
+              updateBackdrop();
+              scrollToMatch();
+            }
+
+            function scrollToMatch() {
+              if (currentSearchIndex >= 0 && currentSearchIndex < searchMatches.length) {
+                const text = document.getElementById('editor').value;
+                const index = searchMatches[currentSearchIndex];
                 const lines = text.substr(0, index).split('\\n');
-                editor.scrollTop = Math.max(0, (lines.length - 3) * 21);
+                document.getElementById('editor').scrollTop = Math.max(0, (lines.length - 3) * 21);
               }
             }
 
@@ -528,6 +660,49 @@ export default {
             
             function closeHistoryModal() {
               document.getElementById('history-modal').style.display = 'none';
+            }
+
+            function showBroadcastModal() {
+              document.getElementById('broadcast-input').value = streamsData.broadcastMessage || "";
+              document.getElementById('broadcast-modal').style.display = 'flex';
+            }
+            
+            function closeBroadcastModal() {
+              document.getElementById('broadcast-modal').style.display = 'none';
+            }
+            
+            async function saveBroadcast(event) {
+              const btn = event ? event.target : null;
+              if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+              }
+              
+              streamsData.broadcastMessage = document.getElementById('broadcast-input').value;
+              
+              try {
+                const res = await fetch('/api/streams/json', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentPassword },
+                  body: JSON.stringify(streamsData)
+                });
+                if (res.ok) {
+                  closeBroadcastModal();
+                  const statusMsg = document.getElementById('status-msg');
+                  statusMsg.textContent = 'Alerts sent successfully!';
+                  statusMsg.style.color = '#22c55e';
+                  setTimeout(() => { statusMsg.textContent = ''; }, 3000);
+                } else {
+                  alert('Failed to send alerts');
+                }
+              } catch(e) {
+                alert('Error sending alerts');
+              }
+              
+              if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Send Alert';
+              }
             }
             
             async function restoreBackup(date) {

@@ -36,9 +36,12 @@ export function useStreams() {
         }
 
         const REMOTE_M3U_URL = import.meta.env.VITE_REMOTE_M3U_URL || "";
-        const FANCODE_JSON_URL = import.meta.env.VITE_FANCODE_JSON_URL || "";
+        const SONYLIV_JSON_URL = import.meta.env.VITE_SONYLIV_JSON_URL || "";
+        const SONYLIV_M3U_URL = import.meta.env.VITE_SONYLIV_M3U_URL || "";
+        const FANCODE_JSON_URL = import.meta.env.VITE_FANCODE_NEW_JSON_URL || "";
+        const FANCODE_M3U_URL = import.meta.env.VITE_FANCODE_NEW_M3U_URL || "";
 
-        let m3uRes, fancodeRes;
+        let m3uRes, sonylivJsonRes, sonylivM3uRes, fancodeJsonRes, fancodeM3uRes;
         
         try {
           const fetchOpts = { headers: { "x-api-key": import.meta.env.VITE_API_KEY || "" }, cache: 'no-store' };
@@ -46,18 +49,35 @@ export function useStreams() {
           const fetchPromises = [
             fetch(REMOTE_M3U_URL, fetchOpts).then(r => { if (!r.ok) throw new Error(); return r.text(); })
           ];
-          
+
+          if (SONYLIV_JSON_URL) {
+            fetchPromises.push(
+              fetch(SONYLIV_JSON_URL, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+            );
+          }
+          if (SONYLIV_M3U_URL) {
+            fetchPromises.push(
+              fetch(SONYLIV_M3U_URL, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(); return r.text(); })
+            );
+          }
           if (FANCODE_JSON_URL) {
             fetchPromises.push(
               fetch(FANCODE_JSON_URL, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
             );
           }
+          if (FANCODE_M3U_URL) {
+            fetchPromises.push(
+              fetch(FANCODE_M3U_URL, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(); return r.text(); })
+            );
+          }
 
           const results = await Promise.allSettled(fetchPromises);
           m3uRes = results[0];
-          if (FANCODE_JSON_URL) {
-            fancodeRes = results[1];
-          }
+          let index = 1;
+          if (SONYLIV_JSON_URL) sonylivJsonRes = results[index++];
+          if (SONYLIV_M3U_URL) sonylivM3uRes = results[index++];
+          if (FANCODE_JSON_URL) fancodeJsonRes = results[index++];
+          if (FANCODE_M3U_URL) fancodeM3uRes = results[index++];
         } catch (e) {
           // Ignore fetch failure
         }
@@ -174,56 +194,137 @@ export function useStreams() {
             }
           }
         }
-
-        if (fancodeRes && fancodeRes.status === 'fulfilled' && fancodeRes.value && fancodeRes.value.matches) {
-          const groupedMatches = new Map();
+        
+        if (sonylivJsonRes && sonylivJsonRes.status === 'fulfilled' && sonylivM3uRes && sonylivM3uRes.status === 'fulfilled') {
+          const jsonData = sonylivJsonRes.value;
+          const m3uTextData = sonylivM3uRes.value;
           
-          fancodeRes.value.matches.forEach((match, index) => {
-            let streamUrl = "";
-            if (match.streams) {
-              if (match.streams.backup) {
-                streamUrl = match.streams.backup.fancode_cdn_v1 || match.streams.backup.fancode_cdn || "";
-              }
-              if (!streamUrl) {
-                streamUrl = match.streams.primary || match.streams.fancode_cdn || "";
+          if (jsonData && jsonData.matches) {
+            // Parse M3U into array of { name, url }
+            const m3uStreams = [];
+            const lines = m3uTextData.split('\n');
+            let currentName = null;
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line.startsWith('#EXTINF:')) {
+                const nameMatch = line.match(/,(.+)$/);
+                currentName = nameMatch ? nameMatch[1].trim() : '';
+              } else if (currentName && line && !line.startsWith('#')) {
+                m3uStreams.push({ name: currentName, url: line.split('|')[0].trim() });
+                currentName = null;
               }
             }
-            if (streamUrl) {
-              let mappedCat = match.category ? match.category.toLowerCase() : 'fancode';
-              if (mappedCat === 'formula 1') mappedCat = 'f1';
+
+            // Fuzzy match helper
+            const getTokens = (str) => str.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+            const calculateSimilarity = (str1, str2) => {
+              const tokens1 = getTokens(str1);
+              const tokens2 = getTokens(str2);
+              if (tokens1.length === 0 || tokens2.length === 0) return 0;
+              let matches = 0;
+              for (const t1 of tokens1) {
+                if (tokens2.includes(t1)) matches++;
+              }
+              return matches / Math.min(tokens1.length, tokens2.length); // Use min for better substring matching
+            };
+
+            const matchedStreams = [];
+            jsonData.matches.forEach(match => {
+              if (!match.isLive) return;
+              const targetTitle = match.match_name || match.event_name || "";
               
-              const matchId = match.match_id || index;
-              const lang = match.language ? match.language.toUpperCase() : 'UNKNOWN';
-              
-              if (groupedMatches.has(matchId)) {
-                const existing = groupedMatches.get(matchId);
-                existing.languageUrls[lang] = streamUrl;
-              } else {
-                groupedMatches.set(matchId, {
-                  id: `fancode_${matchId}`,
-                  name: `${match.title} | ${match.tournament}`,
-                  url: streamUrl, // default url
+              let bestMatch = null;
+              let bestScore = 0;
+
+              for (const m3uStream of m3uStreams) {
+                const score = calculateSimilarity(targetTitle, m3uStream.name);
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestMatch = m3uStream;
+                }
+              }
+
+              // Threshold for fuzzy match
+              if (bestMatch && bestScore > 0.4) {
+                matchedStreams.push({
+                  id: `sonyliv_${match.contentId}`,
+                  name: `${match.match_name}${match.event_name ? ` | ${match.event_name}` : ''}`,
+                  logo: match.src || null,
+                  language: match.audioLanguageName || 'UNKNOWN',
+                  vpn: null,
                   source: 'live',
-                  category: mappedCat,
-                  logo: match.image || null,
+                  category: match.event_category ? match.event_category.toLowerCase() : 'all',
+                  url: bestMatch.url,
                   clearKeys: null,
                   backupUrls: [],
-                  languageUrls: { [lang]: streamUrl }
+                  languageUrls: {},
+                  status: match.isLive ? 'LIVE' : 'UPCOMING',
+                  featured: true
                 });
               }
-            }
-          });
+            });
+
+            allStreams.unshift(...matchedStreams);
+          }
+        }
+        
+        if (fancodeJsonRes && fancodeJsonRes.status === 'fulfilled' && fancodeM3uRes && fancodeM3uRes.status === 'fulfilled') {
+          const jsonData = fancodeJsonRes.value;
+          const m3uTextData = fancodeM3uRes.value;
           
-          const newFancodeStreams = Array.from(groupedMatches.values()).map(stream => {
-            if (Object.keys(stream.languageUrls).length > 1) {
-              stream.language = 'multi';
-            } else {
-              stream.language = Object.keys(stream.languageUrls)[0] || 'ENGLISH';
+          if (jsonData && jsonData.matches) {
+            // Parse Fancode M3U into array of { logo, url }
+            const m3uStreams = [];
+            const lines = m3uTextData.split('\n');
+            let currentLogo = null;
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line.startsWith('#EXTINF:')) {
+                const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+                currentLogo = logoMatch ? logoMatch[1] : '';
+              } else if (currentLogo && line && !line.startsWith('#')) {
+                m3uStreams.push({ logo: currentLogo, url: line.split('|')[0].trim() });
+                currentLogo = null;
+              }
             }
-            return stream;
-          });
-          
-          allStreams.unshift(...newFancodeStreams);
+
+            const matchedStreams = [];
+            jsonData.matches.forEach(match => {
+              // The user asked to only show if isLive is true or status is LIVE. The json has "status": "LIVE" or "status": "UPCOMING" and "isLive" field doesn't seem to be explicitly in the snippet but let's check status.
+              if (match.status !== 'LIVE' && match.isLive !== true) return;
+              
+              const targetLogo = match.src || "";
+              
+              let backupUrlObj = null;
+              for (const m3uStream of m3uStreams) {
+                if (m3uStream.logo === targetLogo && m3uStream.logo !== "") {
+                  backupUrlObj = m3uStream;
+                  break;
+                }
+              }
+
+              const streamUrl = match.adfree_url || (backupUrlObj ? backupUrlObj.url : null);
+              if (!streamUrl) return;
+
+              matchedStreams.push({
+                id: `fancode_${match.match_id || match.contentId || Math.random().toString(36).substring(7)}`,
+                name: match.title,
+                logo: match.src || null,
+                language: match.audioLanguageName || 'UNKNOWN',
+                vpn: null,
+                source: 'live',
+                category: match.event_category ? match.event_category.toLowerCase() : 'all',
+                url: streamUrl,
+                clearKeys: null,
+                backupUrls: backupUrlObj && streamUrl !== backupUrlObj.url ? [{ url: backupUrlObj.url }] : [],
+                languageUrls: {},
+                status: 'LIVE',
+                featured: true
+              });
+            });
+
+            allStreams.unshift(...matchedStreams);
+          }
         }
 
         if (mounted) {
@@ -236,8 +337,7 @@ export function useStreams() {
           } catch (e) {}
 
           setStreams(prev => {
-            // Fancode streams are now included in allStreams natively, 
-            // so we only need to preserve 'custom_' streams from state.
+            // Preserve 'custom_' streams from state.
             const customStreams = prev.filter(s => s.id.startsWith('custom_'));
             
             // Ensure no duplicates just in case

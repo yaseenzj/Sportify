@@ -12,6 +12,7 @@ import PinInput from './components/PinInput';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
 import LanguageModal from './components/LanguageModal';
+import ChangelogModal from './components/ChangelogModal';
 import { getStorage, setStorage, removeStorage } from './storage';
 
 export default function App() {
@@ -19,6 +20,10 @@ export default function App() {
   const [updateStatus, setUpdateStatus] = useState(null);
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateInfo, setUpdateInfo] = useState(null);
+  const [showChangelog, setShowChangelog] = useState(() => {
+    return getStorage('sportify_last_seen_version') !== '1.8.10';
+  });
+
 
   const [isOnboarding, setIsOnboarding] = useState(() => {
     return getStorage('sportify_setup_complete') !== 'true';
@@ -46,6 +51,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState(null);
 
   const [favorites, setFavorites] = useState([]);
+  const [broadcastMessage, setBroadcastMessage] = useState('');
 
   const handleOnboardingComplete = () => {
     setStorage('sportify_setup_complete', 'true');
@@ -123,6 +129,23 @@ export default function App() {
     }
   }, [userName, handleLogout]);
 
+  React.useEffect(() => {
+    const fetchBroadcastMessage = async () => {
+      try {
+        const url = import.meta.env.VITE_REMOTE_JSON_URL;
+        if (!url) return;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        const msg = data.broadcastMessage || data.broadcast_message || data.broadcast || '';
+        setBroadcastMessage(msg);
+      } catch (err) {
+        console.error("Failed to fetch broadcast message:", err);
+      }
+    };
+    fetchBroadcastMessage();
+  }, []);
+
   const toggleFavorite = (streamId) => {
     setFavorites(prev => {
       let newFavs;
@@ -173,7 +196,7 @@ export default function App() {
 
   const handleLanguageSelect = (lang, url) => {
     if (languageSelectStream) {
-      const updatedStream = { ...languageSelectStream, url: url, language: lang };
+      const updatedStream = { ...languageSelectStream, url: url };
       setStreams(prev => {
         return prev.map(s => s.id === updatedStream.id ? updatedStream : s);
       });
@@ -221,6 +244,11 @@ export default function App() {
     });
   }, [streams, searchQuery, languageFilter, activeCategory, favorites]);
 
+  const featuredStreams = useMemo(() => {
+    return streams
+      .filter(s => s.featured && (s.status === 'LIVE' || s.status === 'UPCOMING'))
+      .slice(0, 5);
+  }, [streams]);
 
 
   return (
@@ -302,6 +330,28 @@ export default function App() {
               />
               
               {pinError && <div className="auth-error" style={{ marginTop: '20px' }}>{pinError}</div>}
+              
+              <div style={{ marginTop: '24px' }}>
+                <button 
+                  onClick={handleLogout}
+                  style={{ 
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'var(--accent)',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    fontSize: '0.85rem',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    opacity: 0.8
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.opacity = '0.8'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                >
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -327,6 +377,7 @@ export default function App() {
           activeCategory={activeCategory} 
           setActiveCategory={setActiveCategory} 
           showToast={showToast} 
+          broadcastMessage={broadcastMessage}
         />
       
       <main className="main-content">
@@ -346,11 +397,10 @@ export default function App() {
           <div className="scrollable-content"><Profile userEmail={userName} onLogout={handleLogout} /></div>
         ) : (
           <div className="scrollable-content">
-            <Hero onPlay={handleCustomStreamPlay} />
+            <Hero onPlay={handleCustomStreamPlay} slides={featuredStreams} />
             
             <div className="filters-section">
               <h3 className="section-title">{activeCategory === 'favorites' ? 'Your Favorites' : 'Live Channels'}</h3>
-
             </div>
 
             {loading ? (
@@ -400,6 +450,7 @@ export default function App() {
       )}
 
       {toastMessage && <ToastContainer message={toastMessage} />}
+      {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
     </div>
     </>
   );

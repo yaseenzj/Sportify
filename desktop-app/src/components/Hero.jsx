@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function Hero({ onPlay }) {
-  const [slides, setSlides] = useState([]);
+export default function Hero({ onPlay, slides = [] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [countdown, setCountdown] = useState('');
   const [localStartTime, setLocalStartTime] = useState('');
@@ -36,50 +35,7 @@ export default function Hero({ onPlay }) {
     return `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
   };
 
-  useEffect(() => {
-    let mounted = true;
-    fetch(import.meta.env.VITE_FANCODE_JSON_URL)
-      .then(r => r.json())
-      .then(data => {
-        if (mounted && data && data.matches) {
-          const matchesWithImages = data.matches.filter(m => m.image && m.status !== 'COMPLETED');
-          
-          const uniqueSlidesMap = new Map();
-          matchesWithImages.forEach((match) => {
-            const matchId = match.match_id || match.title;
-            if (uniqueSlidesMap.has(matchId)) {
-               const existing = uniqueSlidesMap.get(matchId);
-               let streamUrl = "";
-               if (match.streams) {
-                 if (match.streams.backup) streamUrl = match.streams.backup.fancode_cdn_v1 || match.streams.backup.fancode_cdn || "";
-                 if (!streamUrl) streamUrl = match.streams.primary || match.streams.fancode_cdn || "";
-               }
-               if (streamUrl && match.language) {
-                 existing.languageUrls[match.language.toUpperCase()] = streamUrl;
-               }
-            } else {
-               let streamUrl = "";
-               if (match.streams) {
-                 if (match.streams.backup) streamUrl = match.streams.backup.fancode_cdn_v1 || match.streams.backup.fancode_cdn || "";
-                 if (!streamUrl) streamUrl = match.streams.primary || match.streams.fancode_cdn || "";
-               }
-               const lang = match.language ? match.language.toUpperCase() : 'UNKNOWN';
-               match.languageUrls = {};
-               if (streamUrl) match.languageUrls[lang] = streamUrl;
-               uniqueSlidesMap.set(matchId, match);
-            }
-          });
-          
-          const uniqueSlides = Array.from(uniqueSlidesMap.values());
-          if (uniqueSlides.length > 0) {
-            setSlides(uniqueSlides.slice(0, 5)); // Take top 5 unique
-          }
-        }
-      })
-      .catch(err => console.error("Failed to load trending slides", err));
 
-    return () => { mounted = false; };
-  }, []);
 
   useEffect(() => {
     if (slides.length <= 1) return;
@@ -108,38 +64,30 @@ export default function Hero({ onPlay }) {
   }, [currentIndex, slides]);
 
   if (slides.length === 0) {
-    // Fallback if no data loaded yet
-    return (
-      <div className="hero-featured" style={{ background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', borderRadius: '24px' }}>
-        <div className="loading-spinner"></div>
-      </div>
-    );
+    return null;
   }
 
   const currentSlide = slides[currentIndex];
 
   const handlePlayClick = () => {
     let streamUrl = "";
-    if (currentSlide.streams) {
-      if (currentSlide.streams.backup) {
-        streamUrl = currentSlide.streams.backup.fancode_cdn_v1 || currentSlide.streams.backup.fancode_cdn || "";
-      }
-      if (!streamUrl) {
-        streamUrl = currentSlide.streams.primary || currentSlide.streams.fancode_cdn || "";
-      }
+    if (currentSlide.url) {
+      streamUrl = currentSlide.url;
+    } else if (currentSlide.streams) {
+      streamUrl = currentSlide.streams.primary || currentSlide.streams.backup || "";
     }
     if (!streamUrl) return;
 
     if (onPlay) {
       onPlay({
-        id: `fancode_${currentSlide.match_id || currentIndex}`,
-        name: `${currentSlide.title} | ${currentSlide.tournament}`,
+        id: currentSlide.id || `custom_${currentSlide.match_id || currentIndex}`,
+        name: currentSlide.name || `${currentSlide.title} | ${currentSlide.tournament}`,
         url: streamUrl,
-        source: 'live',
+        source: currentSlide.source || 'live',
         category: currentSlide.category,
-        clearKeys: null,
+        clearKeys: currentSlide.clearKeys || null,
         languageUrls: currentSlide.languageUrls || {},
-        language: currentSlide.languageUrls && Object.keys(currentSlide.languageUrls).length > 1 ? 'multi' : 'ENGLISH'
+        language: currentSlide.language || 'ENGLISH'
       });
     }
   };
@@ -152,10 +100,10 @@ export default function Hero({ onPlay }) {
     <div className="hero-featured redesigned" style={{ transition: 'all 0.5s ease-in-out', position: 'relative', overflow: 'hidden', borderRadius: '24px', minHeight: '400px', display: 'flex', alignItems: 'flex-end', padding: '40px' }}>
       {slides.map((slide, index) => (
         <div
-          key={slide.match_id || index}
+          key={slide.id || slide.match_id || index}
           className="hero-bg"
           style={{ 
-            backgroundImage: `url(${slide.image})`, 
+            backgroundImage: `url(${slide.logo || slide.image})`, 
             transition: 'opacity 0.8s ease-in-out', 
             position: 'absolute', 
             inset: 0, 
@@ -185,10 +133,10 @@ export default function Hero({ onPlay }) {
           <span className="tag" style={{ background: 'rgba(255,255,255,0.1)' }}>FEATURED</span>
         </div>
         
-        <h1 className="hero-title" style={{ transition: 'opacity 0.5s ease', fontSize: '3rem', fontWeight: 800, lineHeight: 1.1, marginBottom: '16px', textShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>{currentSlide.title}</h1>
+        <h1 className="hero-title" style={{ transition: 'opacity 0.5s ease', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, lineHeight: 1.2, marginBottom: '16px', textShadow: '0 4px 20px rgba(0,0,0,0.5)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{currentSlide.title || currentSlide.name?.split('|')[0]?.trim()}</h1>
         
         <p className="hero-desc" style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.8)', marginBottom: '32px', maxWidth: '500px' }}>
-          {currentSlide.tournament}
+          {currentSlide.tournament || currentSlide.name?.split('|')[1]?.trim() || ''}
         </p>
 
         <div className="hero-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>

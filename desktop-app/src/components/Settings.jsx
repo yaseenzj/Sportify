@@ -77,6 +77,26 @@ export default function Settings() {
         
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
           <div>
+            <h4 style={{ fontSize: '1rem', fontWeight: '500', marginBottom: '4px' }}>App Theme</h4>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Choose your visual experience</p>
+          </div>
+          <select 
+            defaultValue={getStorage('sportify_theme') || 'classic-dark'}
+            onChange={(e) => {
+              setStorage('sportify_theme', e.target.value);
+              document.documentElement.setAttribute('data-theme', e.target.value);
+            }}
+            style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', outline: 'none', fontFamily: 'var(--font-family)' }}
+          >
+            <option value="classic-dark" style={{ background: '#1e1e24' }}>Classic</option>
+            <option value="dark-black-gradient" style={{ background: '#1e1e24' }}>Darker Night</option>
+            <option value="dark-purple-glow" style={{ background: '#1e1e24' }}>Mysterious Glow</option>
+            <option value="midnight-purple" style={{ background: '#1e1e24' }}>Midnight Star</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
+          <div>
             <h4 style={{ fontSize: '1rem', fontWeight: '500', marginBottom: '4px' }}>Hardware Acceleration</h4>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Keep ON for smooth UI performance (requires restart)</p>
           </div>
@@ -180,6 +200,26 @@ export default function Settings() {
               {pinStatus}
             </div>
           )}
+        </div>
+      </div>
+      <div style={{ marginTop: '40px', background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <h3 style={{ fontSize: '1.1rem', color: '#4facfe', marginBottom: '16px', fontWeight: '600' }}>Changelog</h3>
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.6' }}>
+          <h4 style={{ color: 'white', marginBottom: '8px', fontSize: '1rem' }}>v1.8.10 (Latest)</h4>
+          <ul style={{ paddingLeft: '20px', marginBottom: '24px' }}>
+            <li style={{ marginBottom: '6px' }}>Added new, sleek custom app themes (Darker Night, Mysterious Glow, Midnight Star) and a Theme Selector.</li>
+            <li style={{ marginBottom: '6px' }}>Introduced a new <strong style={{color: 'white'}}>Live Alerts</strong> system so you'll never miss an important match or update.</li>
+            <li style={{ marginBottom: '6px' }}>Performance optimizations for faster, smoother channel loading.</li>
+            <li style={{ marginBottom: '6px' }}>Various UI upgrades, bug fixes, and under-the-hood polish.</li>
+          </ul>
+
+          <h4 style={{ color: 'white', marginBottom: '8px', fontSize: '1rem' }}>v1.7.24</h4>
+          <ul style={{ paddingLeft: '20px', marginBottom: '8px' }}>
+            <li style={{ marginBottom: '6px' }}><strong>Ultra-Fast Engine:</strong> Optimized streams for zero buffering and near-instant access.</li>
+            <li style={{ marginBottom: '6px' }}><strong>Background Auto-Updates:</strong> Playlists now seamlessly refresh in the background without reloading.</li>
+            <li style={{ marginBottom: '6px' }}><strong>UI & Player Overhaul:</strong> Cleaner category navigation, multi-language support, and improved player layout.</li>
+            <li style={{ marginBottom: '6px' }}><strong>Max Performance:</strong> Drastically reduced network and CPU/Memory overhead for a smoother app experience.</li>
+          </ul>
         </div>
       </div>
 
