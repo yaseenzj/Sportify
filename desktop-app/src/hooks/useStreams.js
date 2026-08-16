@@ -105,6 +105,7 @@ export function useStreams() {
           };
 
           for (const [categoryName, m3uContent] of Object.entries(categoryMap)) {
+            if (categoryName === 'cards' || categoryName === 'broadcastMessage') continue;
             if (typeof m3uContent !== 'string') continue;
             
             const lines = m3uContent.split('\n');

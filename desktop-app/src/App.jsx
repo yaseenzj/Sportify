@@ -21,7 +21,7 @@ export default function App() {
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [showChangelog, setShowChangelog] = useState(() => {
-    return getStorage('sportify_last_seen_version') !== '1.8.10';
+    return getStorage('sportify_last_seen_version') !== '1.26.8';
   });
 
 
@@ -52,6 +52,7 @@ export default function App() {
 
   const [favorites, setFavorites] = useState([]);
   const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [customCards, setCustomCards] = useState([]);
 
   const handleOnboardingComplete = () => {
     setStorage('sportify_setup_complete', 'true');
@@ -130,20 +131,40 @@ export default function App() {
   }, [userName, handleLogout]);
 
   React.useEffect(() => {
-    const fetchBroadcastMessage = async () => {
+    const fetchRemoteData = async () => {
       try {
         const url = import.meta.env.VITE_REMOTE_JSON_URL;
         if (!url) return;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
+        
         const msg = data.broadcastMessage || data.broadcast_message || data.broadcast || '';
         setBroadcastMessage(msg);
+        
+        if (data.cards && Array.isArray(data.cards)) {
+          // Normalize custom cards to match streams format
+          const formattedCards = data.cards.map((c, idx) => ({
+            id: c.id || `custom_card_${idx}`,
+            name: c.title || c.name || "Custom Event",
+            logo: c.logo || c.image || null,
+            category: c.category || "all",
+            status: c.status || "LIVE",
+            startTime: c.startTime || "",
+            url: c.url || "",
+            clearKeys: c.clearKeys || null,
+            languageUrls: c.languageUrls || {},
+            language: c.language || "ENGLISH",
+            featured: true,
+            source: 'live'
+          }));
+          setCustomCards(formattedCards);
+        }
       } catch (err) {
-        console.error("Failed to fetch broadcast message:", err);
+        console.error("Failed to fetch remote data:", err);
       }
     };
-    fetchBroadcastMessage();
+    fetchRemoteData();
   }, []);
 
   const toggleFavorite = (streamId) => {
@@ -224,8 +245,9 @@ export default function App() {
       
       let langMatch = true;
       const lowerName = stream.name.toLowerCase();
-      const isEnglish = lowerName.includes('eng') || lowerName.includes('uk') || lowerName.includes('us');
-      const isHindi = lowerName.includes('hin') || lowerName.includes('ind');
+      const streamLang = stream.language ? stream.language.toLowerCase() : '';
+      const isEnglish = lowerName.includes('eng') || lowerName.includes('uk') || lowerName.includes('us') || streamLang.includes('eng');
+      const isHindi = lowerName.includes('hin') || lowerName.includes('ind') || streamLang.includes('hin') || streamLang.includes('ind');
       
       if (languageFilter === 'english') {
         langMatch = isEnglish;
@@ -245,10 +267,18 @@ export default function App() {
   }, [streams, searchQuery, languageFilter, activeCategory, favorites]);
 
   const featuredStreams = useMemo(() => {
-    return streams
-      .filter(s => s.featured && (s.status === 'LIVE' || s.status === 'UPCOMING'))
-      .slice(0, 5);
-  }, [streams]);
+    const liveOrUpcomingCustom = customCards.filter(c => c.status === 'LIVE' || c.status === 'UPCOMING');
+    const defaultFeatured = streams.filter(s => s.featured && (s.status === 'LIVE' || s.status === 'UPCOMING'));
+    
+    const merged = [...liveOrUpcomingCustom];
+    defaultFeatured.forEach(item => {
+      if (!merged.some(m => m.id === item.id)) {
+        merged.push(item);
+      }
+    });
+
+    return merged.slice(0, 8);
+  }, [streams, customCards]);
 
 
   return (
@@ -399,8 +429,58 @@ export default function App() {
           <div className="scrollable-content">
             <Hero onPlay={handleCustomStreamPlay} slides={featuredStreams} />
             
-            <div className="filters-section">
-              <h3 className="section-title">{activeCategory === 'favorites' ? 'Your Favorites' : 'Live Channels'}</h3>
+            <div className="filters-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 className="section-title" style={{ margin: 0 }}>{activeCategory === 'favorites' ? 'Your Favorites' : 'Live Channels'}</h3>
+              
+              {/* Language Selector Pill */}
+              <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', alignItems: 'center' }}>
+                <button
+                  onClick={() => setLanguageFilter('all')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    background: languageFilter === 'all' ? 'var(--accent)' : 'transparent',
+                    color: languageFilter === 'all' ? 'var(--accent-text)' : 'var(--text-muted)',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    outline: 'none'
+                  }}
+                  onMouseOver={(e) => {
+                    if (languageFilter !== 'all') e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                  onMouseOut={(e) => {
+                    if (languageFilter !== 'all') e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setLanguageFilter('english')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    background: languageFilter === 'english' ? 'var(--accent)' : 'transparent',
+                    color: languageFilter === 'english' ? 'var(--accent-text)' : 'var(--text-muted)',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    outline: 'none'
+                  }}
+                  onMouseOver={(e) => {
+                    if (languageFilter !== 'english') e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                  onMouseOut={(e) => {
+                    if (languageFilter !== 'english') e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  English
+                </button>
+              </div>
             </div>
 
             {loading ? (

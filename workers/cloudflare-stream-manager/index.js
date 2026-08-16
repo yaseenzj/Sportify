@@ -21,20 +21,41 @@ export default {
     // ----------------------------------------------------
     if (url.pathname === '/api/streams/json') {
       try {
-        let parsed = { broadcastMessage: "" };
+        if (request.method === 'POST') {
+          const auth = request.headers.get("Authorization");
+          if (auth !== `Bearer ${ADMIN_PASSWORD}`) {
+            return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+          }
+          const body = await request.json();
+          await env.SPORTIFY_STREAMS.put("streams_data", JSON.stringify(body));
+          return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        let parsed = { broadcastMessage: "", cards: [] };
         if (env.SPORTIFY_STREAMS) {
           const data = await env.SPORTIFY_STREAMS.get("streams_data");
           if (data) parsed = { ...parsed, ...JSON.parse(data) };
         }
-        return new Response(JSON.stringify({ broadcastMessage: parsed.broadcastMessage }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        let cardsParsed = [];
+        if (parsed.cards) {
+          try {
+            cardsParsed = typeof parsed.cards === 'string' ? JSON.parse(parsed.cards) : parsed.cards;
+          } catch (e) {}
+        }
+
+        return new Response(JSON.stringify({ 
+          broadcastMessage: parsed.broadcastMessage,
+          cards: cardsParsed
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
-        return new Response(JSON.stringify({}), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ broadcastMessage: "", cards: [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
     if (url.pathname === '/api/streams/m3u') {
       try {
-        let parsed = { all: "", football: "", cricket: "", basketball: "", f1: "", motogp: "", tennis: "", golf: "" };
+        let parsed = { all: "", football: "", cricket: "", basketball: "", f1: "", motogp: "", tennis: "", golf: "", cards: "" };
         
         if (env.SPORTIFY_STREAMS) {
           const data = await env.SPORTIFY_STREAMS.get("streams_data");
@@ -349,11 +370,12 @@ export default {
           <script>
             let currentPassword = '';
             let currentCategory = 'all';
-            let streamsData = { all: "", football: "", cricket: "", basketball: "", f1: "", motogp: "", tennis: "", golf: "", broadcastMessage: "" };
+            let streamsData = { all: "", football: "", cricket: "", basketball: "", f1: "", motogp: "", tennis: "", golf: "", broadcastMessage: "", cards: "" };
             
             const categories = [
               { id: 'reports', name: 'Reports ⚠️' },
               { id: 'all', name: 'All Channels' },
+              { id: 'cards', name: 'Featured Cards 🎴' },
               { id: 'basketball', name: 'Basketball' },
               { id: 'f1', name: 'F1' },
               { id: 'football', name: 'Football' },
@@ -451,6 +473,20 @@ export default {
               document.getElementById('toolbar').style.display = 'flex';
               document.getElementById('reports-section').style.display = 'none';
               
+              if (id === 'cards' && !streamsData[id]) {
+                streamsData[id] = JSON.stringify([
+                  {
+                    "id": "custom_card_1",
+                    "title": "Example Live Match",
+                    "tournament": "Champions League",
+                    "logo": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=600",
+                    "category": "football",
+                    "status": "LIVE",
+                    "startTime": "16 Aug 2026 20:00:00 PM",
+                    "url": "https://example.com/stream.m3u8"
+                  }
+                ], null, 2);
+              }
               editor.value = streamsData[id] || "";
               document.getElementById('search-input').value = ""; // clear search
               updateBackdrop();

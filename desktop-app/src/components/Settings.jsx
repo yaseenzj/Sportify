@@ -9,6 +9,7 @@ export default function Settings() {
   const [newPin, setNewPin] = useState('');
   const [pinStatus, setPinStatus] = useState('');
   const [isUpdatingPin, setIsUpdatingPin] = useState(false);
+  const [activeTheme, setActiveTheme] = useState(() => getStorage('sportify_theme') || 'classic-dark');
 
   const handleUpdatePin = async () => {
     if (newPin.length !== 4 || oldPin.length !== 4) {
@@ -75,24 +76,91 @@ export default function Settings() {
       <div style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '32px' }}>
         <h3 style={{ fontSize: '1.1rem', color: '#9d4edd', marginBottom: '24px', fontWeight: '600' }}>Preferences</h3>
         
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
-          <div>
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <h4 style={{ fontSize: '1rem', fontWeight: '500', marginBottom: '4px' }}>App Theme</h4>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Choose your visual experience</p>
           </div>
-          <select 
-            defaultValue={getStorage('sportify_theme') || 'classic-dark'}
-            onChange={(e) => {
-              setStorage('sportify_theme', e.target.value);
-              document.documentElement.setAttribute('data-theme', e.target.value);
-            }}
-            style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', outline: 'none', fontFamily: 'var(--font-family)' }}
-          >
-            <option value="classic-dark" style={{ background: '#1e1e24' }}>Classic</option>
-            <option value="dark-black-gradient" style={{ background: '#1e1e24' }}>Darker Night</option>
-            <option value="dark-purple-glow" style={{ background: '#1e1e24' }}>Mysterious Glow</option>
-            <option value="midnight-purple" style={{ background: '#1e1e24' }}>Midnight Star</option>
-          </select>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {[
+              { id: 'classic-dark', name: 'Classic', bg: '#141517', accent: '#fc4c02' },
+              { id: 'dark-black-gradient', name: 'Darker Night', bg: '#121212', accent: '#ffffff' },
+              { id: 'dark-purple-glow', name: 'Mysterious Glow', bg: '#10081d', accent: '#a372f8' },
+              { id: 'midnight-purple', name: 'Midnight Star', bg: '#0c0812', accent: '#8b5cf6' }
+            ].map(t => {
+              const isSelected = activeTheme === t.id;
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => {
+                    setActiveTheme(t.id);
+                    setStorage('sportify_theme', t.id);
+                    document.documentElement.setAttribute('data-theme', t.id);
+                  }}
+                  style={{
+                    flex: '1 1 calc(25% - 12px)',
+                    minWidth: '140px',
+                    background: isSelected ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)',
+                    border: `1.5px solid ${isSelected ? 'var(--accent)' : 'rgba(255,255,255,0.05)'}`,
+                    borderRadius: '12px',
+                    padding: '16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: isSelected ? '0 8px 24px rgba(0,0,0,0.3)' : 'none',
+                    transform: isSelected ? 'scale(1.02)' : 'none'
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.border = '1.5px solid rgba(255,255,255,0.15)';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.border = '1.5px solid rgba(255,255,255,0.05)';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                    }
+                  }}
+                >
+                  <div style={{ 
+                    width: '36px', 
+                    height: '36px', 
+                    borderRadius: '50%', 
+                    background: t.bg, 
+                    border: '1.5px solid rgba(255,255,255,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      bottom: 0,
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      background: t.accent,
+                      border: '1.5px solid ' + t.bg
+                    }} />
+                  </div>
+                  <span style={{ 
+                    fontSize: '0.85rem', 
+                    fontWeight: isSelected ? '600' : '500', 
+                    color: isSelected ? 'white' : 'var(--text-muted)',
+                    textAlign: 'center'
+                  }}>
+                    {t.name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
@@ -123,14 +191,6 @@ export default function Settings() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Automatically start playing when opened</p>
           </div>
           <input type="checkbox" className="toggle-switch" defaultChecked />
-        </div>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
-          <div>
-            <h4 style={{ fontSize: '1rem', fontWeight: '500', marginBottom: '4px' }}>Notifications</h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Show live match alerts</p>
-          </div>
-          <input type="checkbox" className="toggle-switch" defaultChecked onChange={() => alert('Notifications are currently managed by the desktop system settings.')} />
         </div>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
@@ -205,20 +265,20 @@ export default function Settings() {
       <div style={{ marginTop: '40px', background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
         <h3 style={{ fontSize: '1.1rem', color: '#4facfe', marginBottom: '16px', fontWeight: '600' }}>Changelog</h3>
         <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.6' }}>
-          <h4 style={{ color: 'white', marginBottom: '8px', fontSize: '1rem' }}>v1.8.10 (Latest)</h4>
+          <h4 style={{ color: 'white', marginBottom: '8px', fontSize: '1rem' }}>v1.26.8 (Latest)</h4>
           <ul style={{ paddingLeft: '20px', marginBottom: '24px' }}>
-            <li style={{ marginBottom: '6px' }}>Added new, sleek custom app themes (Darker Night, Mysterious Glow, Midnight Star) and a Theme Selector.</li>
-            <li style={{ marginBottom: '6px' }}>Introduced a new <strong style={{color: 'white'}}>Live Alerts</strong> system so you'll never miss an important match or update.</li>
+            <li style={{ marginBottom: '6px' }}>Added three new app themes (Darker Night, Mysterious Glow, Midnight Star) in Settings.</li>
+            <li style={{ marginBottom: '6px' }}>Introduced <strong style={{color: 'white'}}>Live Alerts</strong> below the favorites section for broadcasting issues live..</li>
             <li style={{ marginBottom: '6px' }}>Performance optimizations for faster, smoother channel loading.</li>
-            <li style={{ marginBottom: '6px' }}>Various UI upgrades, bug fixes, and under-the-hood polish.</li>
+            <li style={{ marginBottom: '6px' }}>Various UI upgrades, bug fixes, and under-the-hood polish etc.</li>
           </ul>
 
           <h4 style={{ color: 'white', marginBottom: '8px', fontSize: '1rem' }}>v1.7.24</h4>
           <ul style={{ paddingLeft: '20px', marginBottom: '8px' }}>
-            <li style={{ marginBottom: '6px' }}><strong>Ultra-Fast Engine:</strong> Optimized streams for zero buffering and near-instant access.</li>
-            <li style={{ marginBottom: '6px' }}><strong>Background Auto-Updates:</strong> Playlists now seamlessly refresh in the background without reloading.</li>
-            <li style={{ marginBottom: '6px' }}><strong>UI & Player Overhaul:</strong> Cleaner category navigation, multi-language support, and improved player layout.</li>
-            <li style={{ marginBottom: '6px' }}><strong>Max Performance:</strong> Drastically reduced network and CPU/Memory overhead for a smoother app experience.</li>
+            <li style={{ marginBottom: '6px' }}>Optimized streams with an <strong style={{color: 'white'}}>Ultra-Fast Engine</strong> for zero buffering and near-instant access.</li>
+            <li style={{ marginBottom: '6px' }}>Enabled <strong style={{color: 'white'}}>Background Auto-Updates</strong> so playlists refresh seamlessly without reloading.</li>
+            <li style={{ marginBottom: '6px' }}>Overhauled <strong style={{color: 'white'}}>UI & Player Layout</strong> with cleaner category navigation and multi-language support.</li>
+            <li style={{ marginBottom: '6px' }}>Maximized performance by reducing network and CPU/Memory overhead for a smoother experience.</li>
           </ul>
         </div>
       </div>

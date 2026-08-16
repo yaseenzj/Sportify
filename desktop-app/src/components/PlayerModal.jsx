@@ -147,6 +147,46 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
                   hasResolved = true; 
                   if (!isCancelled) {
                     setHlsLevels(hls.levels || []);
+                    
+                    // Cap levels according to default quality setting
+                    const defaultQuality = getStorage('sportify_default_quality') || 'auto';
+                    if (defaultQuality !== 'auto') {
+                      const maxQ = parseInt(defaultQuality, 10);
+                      
+                      // Find the highest level that is <= maxQ
+                      let bestLevelIdx = -1;
+                      let maxFoundHeight = 0;
+                      
+                      for (let idx = 0; idx < hls.levels.length; idx++) {
+                        const lvlHeight = hls.levels[idx].height;
+                        if (lvlHeight && lvlHeight <= maxQ) {
+                          if (lvlHeight > maxFoundHeight) {
+                            maxFoundHeight = lvlHeight;
+                            bestLevelIdx = idx;
+                          }
+                        }
+                      }
+                      
+                      // If no level is <= maxQ, and we have multiple qualities, cap at the lowest quality level (usually index 0)
+                      if (bestLevelIdx === -1 && hls.levels.length > 1) {
+                        let minHeightIdx = 0;
+                        let minHeight = hls.levels[0].height || 99999;
+                        for (let idx = 1; idx < hls.levels.length; idx++) {
+                          const lvlHeight = hls.levels[idx].height;
+                          if (lvlHeight && lvlHeight < minHeight) {
+                            minHeight = lvlHeight;
+                            minHeightIdx = idx;
+                          }
+                        }
+                        bestLevelIdx = minHeightIdx;
+                      }
+                      
+                      // Apply capping to auto selection
+                      if (bestLevelIdx !== -1) {
+                        hls.autoLevelCapping = bestLevelIdx;
+                      }
+                    }
+                    
                     setCurrentLevel(hls.currentLevel);
                   }
                   resolve(hls); 
@@ -188,18 +228,12 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
             };
             ui.configure(uiConfig);
 
-            const defaultQuality = getStorage('sportify_default_quality') || 'auto';
-            let maxHeight = 1080;
-            if (defaultQuality !== 'auto') {
-              maxHeight = parseInt(defaultQuality, 10);
-            }
-
             const playerConfig = {
               abr: {
                 enabled: true,
                 restrictToElementSize: false,
                 restrictToScreenSize: false,
-                restrictions: { maxHeight: maxHeight }
+                restrictions: { maxHeight: 1080 }
               },
               streaming: {
                 retryParameters: { maxAttempts: 2, baseDelay: 1000, backoffFactor: 2, fuzzFactor: 0.5, timeout: 10000 },
@@ -216,6 +250,29 @@ export default function PlayerModal({ stream, onClose, isFavorite, onToggleFavor
               }
             };
             player.configure(playerConfig);
+
+            player.addEventListener('trackschanged', () => {
+              const tracks = player.getVariantTracks();
+              const defaultQuality = getStorage('sportify_default_quality') || 'auto';
+              if (defaultQuality !== 'auto' && tracks.length > 0) {
+                const maxQ = parseInt(defaultQuality, 10);
+                const hasValidTrack = tracks.some(t => t.height && t.height <= maxQ);
+                
+                let limitHeight = 1080;
+                if (hasValidTrack) {
+                  limitHeight = maxQ;
+                } else if (tracks.length > 1) {
+                  // Fallback to the track with the minimum height
+                  limitHeight = Math.min(...tracks.map(t => t.height || 99999));
+                }
+                
+                player.configure({
+                  abr: {
+                    restrictions: { maxHeight: limitHeight }
+                  }
+                });
+              }
+            });
 
             player.getNetworkingEngine().clearAllRequestFilters();
             player.getNetworkingEngine().registerRequestFilter((type, request) => {

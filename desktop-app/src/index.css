@@ -6,6 +6,7 @@
     --text-main: #f0f1f5;
     --text-muted: #9598a3;
     --accent: #fc4c02; /* Sporty orange/red accent */
+    --accent-text: #ffffff;
     --accent-hover: #e04402;
     --border-color: #2a2b32;
     --radius-sm: 6px;
@@ -22,6 +23,7 @@
     --text-main: #f0f1f5;
     --text-muted: #8e8a9c;
     --accent: #a372f8;
+    --accent-text: #ffffff;
     --accent-hover: #c4a1ff;
     --border-color: rgba(163, 114, 248, 0.15);
 }
@@ -34,6 +36,7 @@
     --text-main: #ffffff;
     --text-muted: #9990a8;
     --accent: #8b5cf6;
+    --accent-text: #ffffff;
     --accent-hover: #a78bfa;
     --border-color: rgba(139, 92, 246, 0.1);
 }
@@ -46,6 +49,7 @@
     --text-main: #f0f1f5;
     --text-muted: #888888;
     --accent: #ffffff;
+    --accent-text: #000000;
     --accent-hover: #cccccc;
     --border-color: rgba(255, 255, 255, 0.06);
 }
