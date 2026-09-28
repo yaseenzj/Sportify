@@ -1,7 +1,7 @@
 <div align="center">
   <img src="desktop-app/src/assets/logo.png" alt="Sportify Logo" width="120" />
   <h1>Sportify</h1>
-  <p>Never miss a match. A modern desktop application built to bring live sports streams and custom M3U playlists together in a stunning, user-friendly interface.</p>
+  <p>A modern desktop application built to bring live sports streams and custom M3U playlists together in a stunning, user-friendly interface.</p>
 </div>
 
 <br />
